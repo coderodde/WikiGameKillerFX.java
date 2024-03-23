@@ -9,10 +9,17 @@ import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
+import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
+import javafx.scene.layout.Border;
+import javafx.scene.layout.BorderStroke;
+import javafx.scene.layout.BorderStrokeStyle;
+import javafx.scene.layout.BorderWidths;
+import javafx.scene.layout.CornerRadii;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
+import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.stage.Stage;
@@ -30,6 +37,11 @@ public final class WikiGameKillerFX extends Application {
     private final TextField masterTrialsTextField       = new TextField();
     private final TextField masterSleepTextField        = new TextField();
     private final TextField slaveSleepTextField         = new TextField();
+    
+    private final TextArea resultTextArea  = new TextArea();
+    
+    private final HBox statusBarHBox = new HBox();
+    private final Label statusBarLabel = new Label();
     
     public static void main(String[] args) {
         launch(args);
@@ -111,6 +123,28 @@ public final class WikiGameKillerFX extends Application {
         final Button haltButton            = new Button("Halt");
         final Button defaultSettingsButton = new Button("Set defaults");
         
+        statusBarHBox.setMaxHeight(30.0);
+        
+        final BorderStroke borderStroke =
+                new BorderStroke(
+                        Color.GRAY, 
+                        null,
+                        null, 
+                        null,
+                        BorderStrokeStyle.SOLID,
+                        BorderStrokeStyle.NONE, 
+                        BorderStrokeStyle.NONE, 
+                        BorderStrokeStyle.NONE, 
+                        CornerRadii.EMPTY,
+                        BorderWidths.DEFAULT, 
+                        new Insets(10.0, 0.0, 0.0, 0.0));
+        
+        final Border statusBarBorder = new Border(borderStroke);
+        
+        statusBarHBox.setBorder(statusBarBorder);
+        statusBarHBox.getChildren().add(statusBarLabel);
+        statusBarLabel.setFont(FONT);
+        
         buttonsRowBox.getChildren().addAll(searchButton,
                                            defaultSettingsButton,
                                            haltButton);
@@ -128,7 +162,8 @@ public final class WikiGameKillerFX extends Application {
                        masterTrialsRowBox,
                        masterSleepRowBox,
                        slaveSleepRowBox,
-                       buttonsRowBox);
+                       buttonsRowBox,
+                       statusBarHBox);
         
         final StackPane root = new StackPane();
         root.getChildren().add(mainBox);
@@ -168,5 +203,27 @@ public final class WikiGameKillerFX extends Application {
                 Integer.toString(
                         ThreadPoolBidirectionalBFSPathFinder
                                 .DEFAULT_SLAVE_THREAD_SLEEP_DURATION_MILLIS));
+        
+        setWarning(slaveSleepTextField, "Hello wolrd!");
+    }
+    
+    private void setWarning(final TextField textField, 
+                            final String warningMessage) {
+        Border border = 
+                new Border(
+                        new BorderStroke(
+                                Color.RED, 
+                                BorderStrokeStyle.SOLID, 
+                                CornerRadii.EMPTY, 
+                                BorderWidths.DEFAULT));
+        
+        textField.setBorder(border);
+        statusBarLabel.setStyle("-fx-text-inner-color: red;");
+        statusBarLabel.setText(warningMessage);
+    }
+    
+    private void unsetWarning(final TextField textField) {
+        textField.setBorder(null);
+        statusBarLabel.setText("");
     }
 }
