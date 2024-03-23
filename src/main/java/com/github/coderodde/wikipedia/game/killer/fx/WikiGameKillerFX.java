@@ -1,6 +1,9 @@
 package com.github.coderodde.wikipedia.game.killer.fx;
 
 import com.github.coderodde.graph.pathfinding.delayed.impl.ThreadPoolBidirectionalBFSPathFinder;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import javafx.application.Application;
 import static javafx.application.Application.launch;
 import javafx.beans.value.ChangeListener;
@@ -45,12 +48,15 @@ public final class WikiGameKillerFX extends Application {
     private final HBox statusBarHBox = new HBox();
     private final Label statusBarLabel = new Label();
     
+    private final List<TextField> textFieldList = new ArrayList<>();
+     
     public static void main(String[] args) {
         launch(args);
     }
     
     @Override
     public void start(Stage primaryStage) {
+        
         final VBox mainBox = new VBox();;
         
         final Label sourceLabel            = new Label("Source article:        ");
@@ -250,7 +256,56 @@ public final class WikiGameKillerFX extends Application {
         statusBarLabel.setText("");
     }
     
-    private static final class TextFieldChangeListener 
+    private void loadTextFieldList() {
+        textFieldList.addAll(Arrays.asList(sourceTextField,
+                                           targetTextField,
+                                           threadsTextField,
+                                           expansionoDurationTextField,
+                                           waitTimeoutTextField,
+                                           masterTrialsTextField,
+                                           masterSleepTextField,
+                                           slaveSleepTextField));
+    }
+    
+    private TextField getTopmostEmptyTextField() {
+        for (final TextField textField : textFieldList) {
+            if (textField.getText().isBlank()) {
+                return textField;
+            }
+        }
+        
+        return null;
+    }
+    
+    private String getParameterName(final TextField textField) {
+        if (textField == expansionoDurationTextField) {
+            return "Expansion duration";
+        }
+        
+        if (textField == masterSleepTextField) {
+            return "Master sleep duration";
+        }
+        
+        if (textField == masterTrialsTextField) {
+            return "Master trials";
+        }
+        
+        if (textField == slaveSleepTextField) {
+            return "Slave sleep duration";
+        }
+        
+        if (textField == threadsTextField) {
+            return "Threads";
+        }
+        
+        if (textField == waitTimeoutTextField) {
+            return "Wait timeout";
+        }
+        
+        throw new IllegalStateException("Should not get here.");
+    }
+    
+    private final class TextFieldChangeListener 
             implements ChangeListener<String> {
         
         private final TextField textField;
@@ -260,18 +315,24 @@ public final class WikiGameKillerFX extends Application {
         }
         
         @Override
-        public void changed(final ObservableValue<? extends String> observableValue, 
-                            final String oldValue, 
-                            final String newValue) {
+        public void changed(
+                final ObservableValue<? extends String> observableValue, 
+                final String oldValue, 
+                final String newValue) {
             
             if (newValue.trim().equals("")) {
                 textField.setText("");
+                setWarning(textField, 
+                           String.format(
+                                   "%s cannot be empty.", 
+                                   getParameterName(textField)));
                 return;
             }
             
             try {
                 Integer.parseInt(newValue);
                 textField.setText(newValue);
+                unsetWarning(textField);
             } catch (final NumberFormatException ex) {
                 textField.setText(oldValue);
             }
