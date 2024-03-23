@@ -3,6 +3,8 @@ package com.github.coderodde.wikipedia.game.killer.fx;
 import com.github.coderodde.graph.pathfinding.delayed.impl.ThreadPoolBidirectionalBFSPathFinder;
 import javafx.application.Application;
 import static javafx.application.Application.launch;
+import javafx.beans.value.ChangeListener;
+import javafx.beans.value.ObservableValue;
 import javafx.event.ActionEvent;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -78,6 +80,13 @@ public final class WikiGameKillerFX extends Application {
         masterSleepTextField        .setFont(FONT);
         slaveSleepTextField         .setFont(FONT);
         
+        threadsTextField            .textProperty().addListener(new TextFieldChangeListener(threadsTextField));
+        expansionoDurationTextField .textProperty().addListener(new TextFieldChangeListener(expansionoDurationTextField));
+        waitTimeoutTextField        .textProperty().addListener(new TextFieldChangeListener(waitTimeoutTextField));
+        masterTrialsTextField       .textProperty().addListener(new TextFieldChangeListener(masterTrialsTextField));
+        masterSleepTextField        .textProperty().addListener(new TextFieldChangeListener(masterSleepTextField));
+        slaveSleepTextField         .textProperty().addListener(new TextFieldChangeListener(slaveSleepTextField));
+        
         final HBox sourceRowBox            = new HBox();
         final HBox targetRowBox            = new HBox();
         final HBox threadsRowBox           = new HBox();
@@ -87,6 +96,18 @@ public final class WikiGameKillerFX extends Application {
         final HBox masterSleepRowBox       = new HBox();
         final HBox slaveSleepRowBox        = new HBox();
         final HBox buttonsRowBox           = new HBox();
+        
+        final Insets rowBoxInsets = new Insets(3.0);
+        
+        sourceRowBox            .setPadding(rowBoxInsets);
+        targetRowBox            .setPadding(rowBoxInsets);
+        threadsRowBox           .setPadding(rowBoxInsets);
+        expansionDurationRowBox .setPadding(rowBoxInsets);
+        waitTimeoutRowBox       .setPadding(rowBoxInsets);
+        masterTrialsRowBox      .setPadding(rowBoxInsets);
+        masterSleepRowBox       .setPadding(rowBoxInsets);
+        slaveSleepRowBox        .setPadding(rowBoxInsets);
+        buttonsRowBox           .setPadding(rowBoxInsets);
         
         sourceRowBox.setAlignment            (Pos.CENTER_LEFT);
         targetRowBox.setAlignment            (Pos.CENTER_LEFT);
@@ -115,7 +136,7 @@ public final class WikiGameKillerFX extends Application {
         
         slaveSleepRowBox.getChildren().addAll(slaveSleepLabel, 
                                               slaveSleepTextField);
-        mainBox.setPadding(new Insets(7.0));
+//        mainBox.setPadding(new Insets(7.0));
         
         setDefaultSettings();
         
@@ -152,6 +173,8 @@ public final class WikiGameKillerFX extends Application {
         defaultSettingsButton.setOnAction((ActionEvent t) -> {
             setDefaultSettings();
         });
+        
+        
         
         mainBox.getChildren()
                .addAll(sourceRowBox,
@@ -225,5 +248,33 @@ public final class WikiGameKillerFX extends Application {
     private void unsetWarning(final TextField textField) {
         textField.setBorder(null);
         statusBarLabel.setText("");
+    }
+    
+    private static final class TextFieldChangeListener 
+            implements ChangeListener<String> {
+        
+        private final TextField textField;
+
+        public TextFieldChangeListener(final TextField textField) {
+            this.textField = textField;
+        }
+        
+        @Override
+        public void changed(final ObservableValue<? extends String> observableValue, 
+                            final String oldValue, 
+                            final String newValue) {
+            
+            if (newValue.trim().equals("")) {
+                textField.setText("");
+                return;
+            }
+            
+            try {
+                Integer.parseInt(newValue);
+                textField.setText(newValue);
+            } catch (final NumberFormatException ex) {
+                textField.setText(oldValue);
+            }
+        }
     }
 }
