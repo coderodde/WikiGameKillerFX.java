@@ -49,6 +49,14 @@ public final class WikiGameKillerFX extends Application {
     private final Label statusBarLabel = new Label();
     
     private final List<TextField> textFieldList = new ArrayList<>();
+    
+    private final Border textFieldWarningBorder = 
+                new Border(
+                        new BorderStroke(
+                                Color.RED, 
+                                BorderStrokeStyle.SOLID, 
+                                CornerRadii.EMPTY, 
+                                BorderWidths.DEFAULT));
      
     public static void main(String[] args) {
         launch(args);
@@ -57,7 +65,7 @@ public final class WikiGameKillerFX extends Application {
     @Override
     public void start(Stage primaryStage) {
         
-        final VBox mainBox = new VBox();;
+        final VBox mainBox = new VBox();
         
         final Label sourceLabel            = new Label("Source article:        ");
         final Label targetLabel            = new Label("Target article:        ");
@@ -142,7 +150,6 @@ public final class WikiGameKillerFX extends Application {
         
         slaveSleepRowBox.getChildren().addAll(slaveSleepLabel, 
                                               slaveSleepTextField);
-//        mainBox.setPadding(new Insets(7.0));
         
         setDefaultSettings();
         
@@ -180,7 +187,7 @@ public final class WikiGameKillerFX extends Application {
             setDefaultSettings();
         });
         
-        
+        loadTextFieldList();
         
         mainBox.getChildren()
                .addAll(sourceRowBox,
@@ -232,8 +239,6 @@ public final class WikiGameKillerFX extends Application {
                 Integer.toString(
                         ThreadPoolBidirectionalBFSPathFinder
                                 .DEFAULT_SLAVE_THREAD_SLEEP_DURATION_MILLIS));
-        
-        setWarning(slaveSleepTextField, "Hello wolrd!");
     }
     
     private void setWarning(final TextField textField, 
@@ -247,8 +252,21 @@ public final class WikiGameKillerFX extends Application {
                                 BorderWidths.DEFAULT));
         
         textField.setBorder(border);
+        
+        for (final TextField tf : textFieldList) {
+            if (tf.getText().isBlank()) {
+                tf.setBorder(textFieldWarningBorder);
+            } else {
+                tf.setBorder(null);
+            }
+        }
+        
+        final TextField topmostWarningTextField = getTopmostEmptyTextField();
+        
         statusBarLabel.setStyle("-fx-text-inner-color: red;");
-        statusBarLabel.setText(warningMessage);
+        statusBarLabel.setText(
+                getParameterName(topmostWarningTextField)
+                        + " is missing.");
     }
     
     private void unsetWarning(final TextField textField) {
@@ -278,6 +296,14 @@ public final class WikiGameKillerFX extends Application {
     }
     
     private String getParameterName(final TextField textField) {
+        if (textField == sourceTextField) {
+            return "Source";
+        }
+        
+        if (textField == targetTextField) {
+            return "Target";
+        }
+        
         if (textField == expansionoDurationTextField) {
             return "Expansion duration";
         }
