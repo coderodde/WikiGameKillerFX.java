@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <groupId>com.github.coderodde.wikipedia.game.killer.fx</groupId>
+    <artifactId>WikiGameKillerFX.java</artifactId>
+    <version>1.0.0</version>
+    <packaging>jar</packaging>
+    <dependencies>
+        <dependency>
+            <groupId>org.openjfx</groupId>
+            <artifactId>javafx</artifactId>
+            <version>20</version>
+            <type>pom</type>
+        </dependency>
+        <dependency>
+            <groupId>org.openjfx</groupId>
+            <artifactId>javafx-base</artifactId>
+            <version>20</version>
+            <classifier>win</classifier>
+        </dependency>
+        <dependency>
+            <groupId>org.openjfx</groupId>
+            <artifactId>javafx-controls</artifactId>
+            <version>20</version>
+            <classifier>win</classifier>
+        </dependency>
+        <dependency>
+            <groupId>com.github.coderodde.faulty-graph-pathfinder</groupId>
+            <artifactId>ThreadPoolBidirectionalBFSPathFinder.java</artifactId>
+            <version>1.0.0</version>
+        </dependency>
+        <dependency>
+            <groupId>com.github.coderodde.wikipedia.graph.expansion</groupId>
+            <artifactId>WikipediaGraphNodeExpanders.java</artifactId>
+            <version>1.0.0</version>
+        </dependency>
+    </dependencies>
+    <properties>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <maven.compiler.source>1.8</maven.compiler.source>
+        <maven.compiler.target>1.8</maven.compiler.target>
+        <exec.mainClass>com.github.coderodde.wikipedia.game.killer.fx.WikiGameKillerFXJava</exec.mainClass>
+    </properties>
+</project>
