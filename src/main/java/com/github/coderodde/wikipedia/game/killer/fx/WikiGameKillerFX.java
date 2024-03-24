@@ -334,6 +334,21 @@ public final class WikiGameKillerFX extends Application {
         throw new IllegalStateException("Should not get here.");
     }
     
+    private void reportTopmostMissingTextField() {
+        final TextField topmostWarningTextField = 
+                getTopmostEmptyTextField();
+
+        if (topmostWarningTextField == null) {
+            statusBarLabel.setText("");
+            return;
+        }
+        
+        statusBarLabel.setText(
+                String.format(
+                        "%s cannot be empty.", 
+                        getParameterName(topmostWarningTextField)));
+    }
+    
     private final class StringTextFieldChangeListener 
             implements ChangeListener<String> {
 
@@ -351,28 +366,12 @@ public final class WikiGameKillerFX extends Application {
             
             if (newValue.isBlank()) {
                 setTextFieldWarning(textField);
-                
-                final TextField topmostWarningTextField = 
-                        getTopmostEmptyTextField();
-                
-                statusBarLabel.setText(
-                        String.format(
-                                "%s cannot be empty.", 
-                                getParameterName(topmostWarningTextField)));
-                
                 return;
             }
             
             textField.setText(newValue);
             unsetTextFieldWarning(textField);
-
-            final TextField topmostWarningTextField = 
-                    getTopmostEmptyTextField();
-
-            statusBarLabel.setText(
-                    String.format(
-                            "%s cannot be empty.", 
-                            getParameterName(topmostWarningTextField)));
+            reportTopmostMissingTextField();
         }
     }
     
@@ -394,14 +393,7 @@ public final class WikiGameKillerFX extends Application {
             if (newValue.trim().equals("")) {   
                 textField.setText("");
                 setTextFieldWarning(textField);
-                
-                final TextField topmostWarningTextField = 
-                        getTopmostEmptyTextField();
-                
-                statusBarLabel.setText(
-                        String.format(
-                                "%s cannot be empty.", 
-                                getParameterName(topmostWarningTextField)));
+                reportTopmostMissingTextField();
                 return;
             }
             
@@ -409,19 +401,7 @@ public final class WikiGameKillerFX extends Application {
                 Integer.parseInt(newValue);
                 textField.setText(newValue);
                 unsetTextFieldWarning(textField);
-                
-                final TextField topmostWarningTextField = 
-                        getTopmostEmptyTextField();
-                
-                if (topmostWarningTextField == null) {
-                    return;
-                }
-                
-                statusBarLabel.setText(
-                        String.format(
-                                "%s cannot be empty.", 
-                                getParameterName(topmostWarningTextField)));
-                
+                reportTopmostMissingTextField();
             } catch (final NumberFormatException ex) {
                 textField.setText(oldValue);
             }
