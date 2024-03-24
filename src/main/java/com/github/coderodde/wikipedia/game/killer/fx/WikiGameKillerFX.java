@@ -33,6 +33,14 @@ public final class WikiGameKillerFX extends Application {
 
     private static final Font FONT = 
             Font.font("monospaced", FontWeight.BOLD, 11);
+    
+    private static final Border WARNING_BORDER = 
+                new Border(
+                        new BorderStroke(
+                                Color.RED, 
+                                BorderStrokeStyle.SOLID, 
+                                CornerRadii.EMPTY, 
+                                BorderWidths.DEFAULT));
         
     private final TextField sourceTextField             = new TextField();
     private final TextField targetTextField             = new TextField();
@@ -94,12 +102,14 @@ public final class WikiGameKillerFX extends Application {
         masterSleepTextField        .setFont(FONT);
         slaveSleepTextField         .setFont(FONT);
         
-        threadsTextField            .textProperty().addListener(new TextFieldChangeListener(threadsTextField));
-        expansionoDurationTextField .textProperty().addListener(new TextFieldChangeListener(expansionoDurationTextField));
-        waitTimeoutTextField        .textProperty().addListener(new TextFieldChangeListener(waitTimeoutTextField));
-        masterTrialsTextField       .textProperty().addListener(new TextFieldChangeListener(masterTrialsTextField));
-        masterSleepTextField        .textProperty().addListener(new TextFieldChangeListener(masterSleepTextField));
-        slaveSleepTextField         .textProperty().addListener(new TextFieldChangeListener(slaveSleepTextField));
+        sourceTextField             .textProperty().addListener(new StringTextFieldChangeListener(sourceTextField));
+        targetTextField             .textProperty().addListener(new StringTextFieldChangeListener(targetTextField));
+        threadsTextField            .textProperty().addListener(new IntegerTextFieldChangeListener(threadsTextField));
+        expansionoDurationTextField .textProperty().addListener(new IntegerTextFieldChangeListener(expansionoDurationTextField));
+        waitTimeoutTextField        .textProperty().addListener(new IntegerTextFieldChangeListener(waitTimeoutTextField));
+        masterTrialsTextField       .textProperty().addListener(new IntegerTextFieldChangeListener(masterTrialsTextField));
+        masterSleepTextField        .textProperty().addListener(new IntegerTextFieldChangeListener(masterSleepTextField));
+        slaveSleepTextField         .textProperty().addListener(new IntegerTextFieldChangeListener(slaveSleepTextField));
         
         final HBox sourceRowBox            = new HBox();
         final HBox targetRowBox            = new HBox();
@@ -189,6 +199,9 @@ public final class WikiGameKillerFX extends Application {
         
         loadTextFieldList();
         
+        setTextFieldWarning(sourceTextField);
+        setTextFieldWarning(targetTextField);
+        
         mainBox.getChildren()
                .addAll(sourceRowBox,
                        targetRowBox,
@@ -241,17 +254,8 @@ public final class WikiGameKillerFX extends Application {
                                 .DEFAULT_SLAVE_THREAD_SLEEP_DURATION_MILLIS));
     }
     
-    private void setWarning(final TextField textField, 
-                            final String warningMessage) {
-        Border border = 
-                new Border(
-                        new BorderStroke(
-                                Color.RED, 
-                                BorderStrokeStyle.SOLID, 
-                                CornerRadii.EMPTY, 
-                                BorderWidths.DEFAULT));
-        
-        textField.setBorder(border);
+    private void setTextFieldWarning(final TextField textField) {
+        textField.setBorder(WARNING_BORDER);
         
         for (final TextField tf : textFieldList) {
             if (tf.getText().isBlank()) {
@@ -269,9 +273,8 @@ public final class WikiGameKillerFX extends Application {
                         + " is missing.");
     }
     
-    private void unsetWarning(final TextField textField) {
+    private void unsetTextFieldWarning(final TextField textField) {
         textField.setBorder(null);
-        statusBarLabel.setText("");
     }
     
     private void loadTextFieldList() {
@@ -297,11 +300,11 @@ public final class WikiGameKillerFX extends Application {
     
     private String getParameterName(final TextField textField) {
         if (textField == sourceTextField) {
-            return "Source";
+            return "Source URL";
         }
         
         if (textField == targetTextField) {
-            return "Target";
+            return "Target URL";
         }
         
         if (textField == expansionoDurationTextField) {
@@ -331,12 +334,12 @@ public final class WikiGameKillerFX extends Application {
         throw new IllegalStateException("Should not get here.");
     }
     
-    private final class TextFieldChangeListener 
+    private final class StringTextFieldChangeListener 
             implements ChangeListener<String> {
-        
+
         private final TextField textField;
 
-        public TextFieldChangeListener(final TextField textField) {
+        public StringTextFieldChangeListener(final TextField textField) {
             this.textField = textField;
         }
         
@@ -346,19 +349,79 @@ public final class WikiGameKillerFX extends Application {
                 final String oldValue, 
                 final String newValue) {
             
-            if (newValue.trim().equals("")) {
+            if (newValue.isBlank()) {
+                setTextFieldWarning(textField);
+                
+                final TextField topmostWarningTextField = 
+                        getTopmostEmptyTextField();
+                
+                statusBarLabel.setText(
+                        String.format(
+                                "%s cannot be empty.", 
+                                getParameterName(topmostWarningTextField)));
+                
+                return;
+            }
+            
+            textField.setText(newValue);
+            unsetTextFieldWarning(textField);
+
+            final TextField topmostWarningTextField = 
+                    getTopmostEmptyTextField();
+
+            statusBarLabel.setText(
+                    String.format(
+                            "%s cannot be empty.", 
+                            getParameterName(topmostWarningTextField)));
+        }
+    }
+    
+    private final class IntegerTextFieldChangeListener 
+            implements ChangeListener<String> {
+        
+        private final TextField textField;
+
+        public IntegerTextFieldChangeListener(final TextField textField) {
+            this.textField = textField;
+        }
+        
+        @Override
+        public void changed(
+                final ObservableValue<? extends String> observableValue, 
+                final String oldValue, 
+                final String newValue) {
+            
+            if (newValue.trim().equals("")) {   
                 textField.setText("");
-                setWarning(textField, 
-                           String.format(
-                                   "%s cannot be empty.", 
-                                   getParameterName(textField)));
+                setTextFieldWarning(textField);
+                
+                final TextField topmostWarningTextField = 
+                        getTopmostEmptyTextField();
+                
+                statusBarLabel.setText(
+                        String.format(
+                                "%s cannot be empty.", 
+                                getParameterName(topmostWarningTextField)));
                 return;
             }
             
             try {
                 Integer.parseInt(newValue);
                 textField.setText(newValue);
-                unsetWarning(textField);
+                unsetTextFieldWarning(textField);
+                
+                final TextField topmostWarningTextField = 
+                        getTopmostEmptyTextField();
+                
+                if (topmostWarningTextField == null) {
+                    return;
+                }
+                
+                statusBarLabel.setText(
+                        String.format(
+                                "%s cannot be empty.", 
+                                getParameterName(topmostWarningTextField)));
+                
             } catch (final NumberFormatException ex) {
                 textField.setText(oldValue);
             }
