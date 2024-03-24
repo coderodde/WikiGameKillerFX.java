@@ -1,9 +1,18 @@
 package com.github.coderodde.wikipedia.game.killer.fx;
 
+import com.github.coderodde.graph.pathfinding.delayed.AbstractDelayedGraphPathFinder;
+import com.github.coderodde.graph.pathfinding.delayed.AbstractNodeExpander;
 import com.github.coderodde.graph.pathfinding.delayed.impl.ThreadPoolBidirectionalBFSPathFinder;
+import com.github.coderodde.graph.pathfinding.delayed.impl.ThreadPoolBidirectionalBFSPathFinderBuilder;
+import com.github.coderodde.graph.pathfinding.delayed.impl.ThreadPoolBidirectionalBFSPathFinderSearchBuilder;
+import com.github.coderodde.wikipedia.graph.expansion.BackwardWikipediaGraphNodeExpander;
+import com.github.coderodde.wikipedia.graph.expansion.ForwardWikipediaGraphNodeExpander;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
+import java.util.regex.Pattern;
 import javafx.application.Application;
 import static javafx.application.Application.launch;
 import javafx.beans.value.ChangeListener;
@@ -12,8 +21,11 @@ import javafx.event.ActionEvent;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
+import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
+import javafx.scene.control.ButtonType;
 import javafx.scene.control.Label;
+import javafx.scene.control.ProgressBar;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
 import javafx.scene.layout.Border;
@@ -31,9 +43,27 @@ import javafx.stage.Stage;
 
 public final class WikiGameKillerFX extends Application {
 
+    /**
+     * The Wikipedia URL format.
+     */
+    private static final String WIKIPEDIA_URL_FORMAT =
+            "^((http:\\/\\/)|(https:\\/\\/))?..\\.wikipedia\\.org\\/wiki\\/.+$";
+    
+    /**
+     * The Wikipedia URL regular expression pattern object.
+     */
+    private static final Pattern WIKIPEDIA_URL_FORMAT_PATTERN = 
+            Pattern.compile(WIKIPEDIA_URL_FORMAT);
+    
+    /**
+     * The application font.
+     */
     private static final Font FONT = 
             Font.font("monospaced", FontWeight.BOLD, 11);
     
+    /**
+     * Warning text field warning.
+     */
     private static final Border WARNING_BORDER = 
                 new Border(
                         new BorderStroke(
@@ -51,7 +81,11 @@ public final class WikiGameKillerFX extends Application {
     private final TextField masterSleepTextField        = new TextField();
     private final TextField slaveSleepTextField         = new TextField();
     
-    private final TextArea resultTextArea  = new TextArea();
+    private final ProgressBar progressBar = new ProgressBar(100.0);
+    
+    private volatile AbstractDelayedGraphPathFinder<String> finder;
+    
+    private final TextArea resultTextArea = new TextArea();
     
     private final HBox statusBarHBox = new HBox();
     private final Label statusBarLabel = new Label();
@@ -101,6 +135,15 @@ public final class WikiGameKillerFX extends Application {
         masterTrialsTextField       .setFont(FONT);
         masterSleepTextField        .setFont(FONT);
         slaveSleepTextField         .setFont(FONT);
+        
+        sourceTextField             .setPrefWidth(300);
+        targetTextField             .setPrefWidth(300);
+        threadsTextField            .setPrefWidth(300);
+        expansionoDurationTextField .setPrefWidth(300);
+        waitTimeoutTextField        .setPrefWidth(300);
+        masterTrialsTextField       .setPrefWidth(300);
+        masterSleepTextField        .setPrefWidth(300);
+        slaveSleepTextField         .setPrefWidth(300);
         
         sourceTextField             .textProperty().addListener(new StringTextFieldChangeListener(sourceTextField));
         targetTextField             .textProperty().addListener(new StringTextFieldChangeListener(targetTextField));
@@ -197,10 +240,95 @@ public final class WikiGameKillerFX extends Application {
             setDefaultSettings();
         });
         
+        searchButton.setOnAction((ActionEvent actionEvent) -> {
+            searchButton.setDisable(true);
+            
+            String sourceUrlLanguageCode;
+            String targetUrlLanguageCode;
+            
+            final boolean ok = reportTopmostMissingTextField();
+            
+            if (ok) {
+                final String sourceUrl      = sourceTextField.getText();
+                final String targetUrl      = targetTextField.getText();
+                
+                try {
+                    checkSourceUrl(sourceUrl);
+                    checkTargetUrl(targetUrl);
+                    
+                    sourceUrlLanguageCode = getLanguageCode(sourceUrl);
+                    targetUrlLanguageCode = getLanguageCode(targetUrl);
+                    
+                    if (!sourceUrlLanguageCode.equals(targetUrlLanguageCode)) {
+                        throw new IllegalArgumentException(
+                                String.format(
+                                        "Conflicting language codes: %s vs %s.\n",
+                                        sourceUrlLanguageCode,
+                                        targetUrlLanguageCode));
+                    }
+                    
+                } catch (final IllegalArgumentException ex) {
+                    Alert alert = new Alert(Alert.AlertType.ERROR, 
+                                            ex.getMessage(), 
+                                            ButtonType.OK);
+                    
+                    alert.showAndWait();
+                    searchButton.setDisable(false);
+                    return;
+                }
+                
+                final int threads           = Integer.parseInt(threadsTextField.getText());
+                final int lockWaitDuration  = Integer.parseInt(waitTimeoutTextField.getText());
+                final int expansionDuration = Integer.parseInt(expansionoDurationTextField.getText());
+                final int masterTrials      = Integer.parseInt(masterTrialsTextField.getText());
+                final int masterSleep       = Integer.parseInt(masterSleepTextField.getText());
+                final int slaveSleep        = Integer.parseInt(slaveSleepTextField.getText());
+                
+                finder = 
+                        ThreadPoolBidirectionalBFSPathFinderBuilder
+                        .<String>begin()
+                        .withJoinDurationMillis(expansionDuration)
+                        .withLockWaitMillis(lockWaitDuration)
+                        .withMasterThreadSleepDurationMillis(masterSleep)
+                        .withNumberOfMasterTrials(masterTrials)
+                        .withNumberOfRequestedThreads(threads)
+                        .withSlaveThreadSleepDurationMillis(slaveSleep)
+                        .end();
+                
+                final AbstractNodeExpander<String> forwardNodeExpander = 
+                        new ForwardLinkExpander(sourceUrlLanguageCode);
+                
+                final AbstractNodeExpander<String> backwardNodeExpander = 
+                        new BackwardLinkExpander(targetUrlLanguageCode);
+                
+                final List<String> path =
+                        ThreadPoolBidirectionalBFSPathFinderSearchBuilder
+                        .<String>withPathFinder(finder)
+                        .withSourceNode(sourceUrl)
+                        .withTargetNode(targetUrl)
+                        .withForwardNodeExpander(forwardNodeExpander)
+                        .withBackwardNodeExpander(backwardNodeExpander)
+                        .search();
+                
+            } else {
+                
+            }
+        });
+        
+        haltButton.setOnAction((ActionEvent actionEvent) -> {
+            if (finder != null) {
+                finder.halt();
+                finder = null;
+                searchButton.setDisable(false);
+            }
+        });
+        
         loadTextFieldList();
         
         setTextFieldWarning(sourceTextField);
         setTextFieldWarning(targetTextField);
+        
+        progressBar.setPrefSize(statusBarHBox.getWidth(), 25);
         
         mainBox.getChildren()
                .addAll(sourceRowBox,
@@ -212,6 +340,7 @@ public final class WikiGameKillerFX extends Application {
                        masterSleepRowBox,
                        slaveSleepRowBox,
                        buttonsRowBox,
+                       progressBar,
                        statusBarHBox);
         
         final StackPane root = new StackPane();
@@ -334,19 +463,21 @@ public final class WikiGameKillerFX extends Application {
         throw new IllegalStateException("Should not get here.");
     }
     
-    private void reportTopmostMissingTextField() {
+    private boolean reportTopmostMissingTextField() {
         final TextField topmostWarningTextField = 
                 getTopmostEmptyTextField();
 
         if (topmostWarningTextField == null) {
             statusBarLabel.setText("");
-            return;
+            return true;
         }
         
         statusBarLabel.setText(
                 String.format(
                         "%s cannot be empty.", 
                         getParameterName(topmostWarningTextField)));
+        
+        return false;
     }
     
     private final class StringTextFieldChangeListener 
@@ -404,6 +535,159 @@ public final class WikiGameKillerFX extends Application {
                 reportTopmostMissingTextField();
             } catch (final NumberFormatException ex) {
                 textField.setText(oldValue);
+            }
+        }
+    }
+    
+    private static void checkSourceUrl(final String sourceUrl) {
+        if (!WIKIPEDIA_URL_FORMAT_PATTERN.matcher(sourceUrl).find()) {
+            throw new IllegalArgumentException(
+                    String.format(
+                            "The source URL \"%s\" is invalid.", 
+                            sourceUrl));
+        }
+    }
+    
+    private static void checkTargetUrl(final String targetUrl) {
+        if (!WIKIPEDIA_URL_FORMAT_PATTERN.matcher(targetUrl).find()) {
+            throw new IllegalArgumentException(
+                    String.format(
+                            "The target URL \"%s\" is invalid.", 
+                            targetUrl));
+        }
+    }
+    
+    /**
+     * Returns the ISO language code used in the input URL {@code url}.
+     * 
+     * @param url the URL to extract the country code from.
+     * 
+     * @return the language code.
+     * 
+     * @throws CommandLineException if the resulting language code does not 
+     *                              conform to ISO.
+     */
+    private static String getLanguageCode(String url) {
+        final String secureProtocol = "https://";
+        final String insecureProtocol = "http://";
+        
+        if (url.startsWith(secureProtocol)) {
+            url = url.substring(secureProtocol.length());
+        } else if (url.startsWith(insecureProtocol)) {
+            url = url.substring(insecureProtocol.length());
+        }
+        
+        final String languageCode = url.substring(0, 2);
+        
+        if (!Arrays.asList(Locale.getISOLanguages()).contains(languageCode)) {
+            throw new IllegalArgumentException(
+                    String.format(
+                            "Unknown language code: %s",
+                            languageCode));
+        }
+        
+        return languageCode;
+    }
+    
+    /**
+     * Strips the protocol, host name and {@code wiki} path from each URL in
+     * the {@code urlList}. For example, 
+     * {@code https://en.wikipedia.org/en/Hiisi} becomes simply {@code Hiisi}.
+     * 
+     * @param urlList the list of URLs.
+     * @return the list of stripped URLs.
+     */
+    private static List<String> stripHostAddress(final List<String> urlList) {
+        List<String> result = new ArrayList<>(urlList.size());
+        
+        for (final String url : urlList) {
+            result.add(url.substring(url.lastIndexOf("/") + 1));
+        }
+        
+        return result;
+    }
+    
+    /**
+     * This class implements the forward link expander.
+     */
+    private static final class ForwardLinkExpander 
+            extends AbstractNodeExpander<String> {
+
+        private final ForwardWikipediaGraphNodeExpander expander;
+        
+        public ForwardLinkExpander(final String languageCode) {
+            this.expander = new ForwardWikipediaGraphNodeExpander(languageCode);
+        }
+        
+        /**
+         * Generate all the links that this article links to.
+         * 
+         * @param article the source article of each link.
+         * 
+         * @return all the article titles that {@code article} links to.
+         */
+        @Override
+        public List<String> generateSuccessors(final String article) {
+            try {
+                return stripHostAddress(expander.getNeighbors(article));
+            } catch (Exception ex) {
+                return Collections.<String>emptyList();
+            }
+        }
+
+        /**
+         * {@inheritDoc }
+         */
+        @Override
+        public boolean isValidNode(final String article) {
+            try {
+                return expander.isValidNode(article);
+            } catch (Exception ex) {
+                return false;
+            }
+        }
+    }
+    
+    /**
+     * This class implements the backward link expander. 
+     */
+    private static final class BackwardLinkExpander 
+            extends AbstractNodeExpander<String> {
+
+        private final BackwardWikipediaGraphNodeExpander expander;
+        
+        public BackwardLinkExpander(final String languageCode) {
+            this.expander = 
+                    new BackwardWikipediaGraphNodeExpander(languageCode);
+        }
+        
+        /**
+         * Generate all the links pointing to the article {@code article}.
+         * 
+         * @param article the target article of each link.
+         * 
+         * @return all the article titles linking to {@code article}.
+         * 
+         * @throws java.lang.Exception if something fails.
+         */
+        @Override
+        public List<String> generateSuccessors(final String article) {
+            try {
+                return stripHostAddress(expander.getNeighbors(article));
+            } catch (Exception ex) {
+                return Collections.<String>emptyList();
+            }
+        }
+        
+        /**
+         * {@inheritDoc }
+         */
+        @Override
+        public boolean isValidNode(final String article) {
+            try {
+                return expander.isValidNode(article);
+            } catch (Exception ex) {
+                return false;
             }
         }
     }
