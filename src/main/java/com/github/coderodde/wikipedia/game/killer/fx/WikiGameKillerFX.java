@@ -246,6 +246,7 @@ public final class WikiGameKillerFX extends Application {
         
         searchButton.setOnAction((ActionEvent actionEvent) -> {
             searchButton.setDisable(true);
+            haltButton.setDisable(false);
             
             String sourceUrlLanguageCode;
             String targetUrlLanguageCode;
@@ -299,8 +300,6 @@ public final class WikiGameKillerFX extends Application {
                         .withSlaveThreadSleepDurationMillis(slaveSleep)
                         .end();
                 
-                
-                
                 final AbstractNodeExpander<String> forwardNodeExpander = 
                         new ForwardLinkExpander(sourceUrlLanguageCode);
                 
@@ -349,8 +348,16 @@ public final class WikiGameKillerFX extends Application {
         haltButton.setOnAction((ActionEvent actionEvent) -> {
             if (finder != null) {
                 finder.halt();
-                finder = null;
                 searchButton.setDisable(false);
+                haltButton.setDisable(true);
+               
+                System.out.printf(
+                        "Search halted after %s milliseconds " + 
+                        "expanding %d nodes.\n", 
+                        finder.getDuration(), 
+                        finder.getNumberOfExpandedNodes());
+                
+                finder = null;
             }
         });
         
@@ -521,6 +528,9 @@ public final class WikiGameKillerFX extends Application {
                             String.format(
                                     "%s cannot be empty.", 
                                     getParameterName(sourceTextField)));
+                    
+                    searchButton.setDisable(true);
+                    haltButton.setDisable(true);
                     return false;
                 }
                 
@@ -531,6 +541,8 @@ public final class WikiGameKillerFX extends Application {
                 setTextFieldWarning(sourceTextField);
                 failingTextField = sourceTextField;
                 failingTextFieldText = ex.getMessage();
+                searchButton.setDisable(true);
+                haltButton.setDisable(true);
             }
             
             try {
@@ -538,6 +550,8 @@ public final class WikiGameKillerFX extends Application {
                 
                 if (targetUrl.isBlank()) {
                     setTextFieldWarning(targetTextField);
+                    searchButton.setDisable(true);
+                    haltButton.setDisable(true);
                     
                     statusBarLabel.setText(
                             String.format(
@@ -551,6 +565,8 @@ public final class WikiGameKillerFX extends Application {
                 targetUrlLanguageCode = getLanguageCode(targetUrl);
             } catch (final IllegalArgumentException ex) {
                 setTextFieldWarning(targetTextField);
+                searchButton.setDisable(true);
+                haltButton.setDisable(true);
                 
                 if (failingTextField == null) {
                     failingTextField = targetTextField;
@@ -567,6 +583,9 @@ public final class WikiGameKillerFX extends Application {
             if (!sourceUrlLanguageCode.equals(targetUrlLanguageCode)) {
                 setTextFieldWarning(sourceTextField);
                 setTextFieldWarning(targetTextField);
+                searchButton.setDisable(true);
+                haltButton.setDisable(true);
+                
                 statusBarLabel.setText(
                         String.format(
                                 "Language mismatch: \"%s\" vs \"%s\".", 
@@ -574,9 +593,14 @@ public final class WikiGameKillerFX extends Application {
                                 targetUrlLanguageCode));
                 return false;
             } else {
+                searchButton.setDisable(false);
+                haltButton.setDisable(true);
                 return true;
             }
         }
+        
+        searchButton.setDisable(true);
+        haltButton.setDisable(true);
         
         statusBarLabel.setText(
                 String.format(
