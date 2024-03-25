@@ -17,6 +17,7 @@ import javafx.application.Application;
 import static javafx.application.Application.launch;
 import javafx.beans.value.ChangeListener;
 import javafx.beans.value.ObservableValue;
+import javafx.concurrent.Task;
 import javafx.event.ActionEvent;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -311,23 +312,35 @@ public final class WikiGameKillerFX extends Application {
                 
                 haltButton.setDisable(false);
                 
-                final List<String> path =
-                        ThreadPoolBidirectionalBFSPathFinderSearchBuilder
-                        .<String>withPathFinder(finder)
-                        .withSourceNode(sourceArticleTitle)
-                        .withTargetNode(targetArticleTitle)
-                        .withForwardNodeExpander(forwardNodeExpander)
-                        .withBackwardNodeExpander(backwardNodeExpander)
-                        .search();
+                final SearchTask searchTask = new SearchTask();
                 
-                System.out.printf(
-                        "[STATISTICS] Duration: %d milliseconds. " + 
-                        "Expanded nodes: %d.\n", 
-                        finder.getDuration(), 
-                        finder.getNumberOfExpandedNodes());
+                searchTask.finder = finder;
+                searchTask.sourceUrl = sourceUrl;
+                searchTask.targetUrl = targetUrl;
+                searchTask.forwardExpander = forwardNodeExpander;
+                searchTask.backwardExpander = backwardNodeExpander;
                 
-                path.forEach(System.out::println);
+                final Thread searchThread = new Thread(searchTask);
+                searchThread.setDaemon(true);
+                searchThread.start();
                 
+//                final List<String> path =
+//                        ThreadPoolBidirectionalBFSPathFinderSearchBuilder
+//                        .<String>withPathFinder(finder)
+//                        .withSourceNode(sourceArticleTitle)
+//                        .withTargetNode(targetArticleTitle)
+//                        .withForwardNodeExpander(forwardNodeExpander)
+//                        .withBackwardNodeExpander(backwardNodeExpander)
+//                        .search();
+//                
+//                System.out.printf(
+//                        "[STATISTICS] Duration: %d milliseconds. " + 
+//                        "Expanded nodes: %d.\n", 
+//                        finder.getDuration(), 
+//                        finder.getNumberOfExpandedNodes());
+//                
+//                path.forEach(System.out::println);
+//                
             } else {
                 System.out.println("OOps!");
             }
@@ -803,6 +816,46 @@ public final class WikiGameKillerFX extends Application {
             } catch (Exception ex) {
                 return false;
             }
+        }
+    }
+    
+    private final class SearchTask extends Task<List<String>> {
+
+        String sourceUrl;
+        String targetUrl;
+        AbstractDelayedGraphPathFinder<String> finder;
+        AbstractNodeExpander<String> forwardExpander;
+        AbstractNodeExpander<String> backwardExpander;
+        
+        @Override
+        protected List<String> call() throws Exception {
+            System.out.printf("Searching for path from %s to %s.\n",
+                              sourceUrl,
+                              targetUrl);
+            
+            List<String> path = 
+                    ThreadPoolBidirectionalBFSPathFinderSearchBuilder
+                    .<String>withPathFinder(finder)
+                    .withSourceNode(stripHostFromURL(sourceUrl))
+                    .withTargetNode(stripHostFromURL(targetUrl))
+                    .withForwardNodeExpander(forwardExpander)
+                    .withBackwardNodeExpander(backwardExpander)
+                    .search();
+            
+            System.out.printf(
+                    "[STATISTICS] Duration: %d milliseconds. " + 
+                    "Number of expanded nodes: %d.\n", 
+                    finder.getDuration(), 
+                    finder.getNumberOfExpandedNodes());
+            
+            if (path.isEmpty()) {
+                System.out.println("No path found.");
+            } else {
+                System.out.println("Path:");
+                path.forEach(System.out::println);
+            }
+            
+            return path;
         }
     }
 }
