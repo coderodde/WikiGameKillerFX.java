@@ -413,8 +413,9 @@ public final class WikiGameKillerFX extends Application {
         
         statusBarLabel.setStyle("-fx-text-inner-color: red;");
         statusBarLabel.setText(
-                getParameterName(topmostWarningTextField)
-                        + " is missing.");
+                String.format(
+                        "%s cannot be empty.",
+                        getParameterName(topmostWarningTextField)));
     }
     
     private void unsetTextFieldWarning(final TextField textField) {
@@ -495,7 +496,11 @@ public final class WikiGameKillerFX extends Application {
                 
                 if (sourceUrl.isBlank()) {
                     setTextFieldWarning(sourceTextField);
-                    statusBarLabel.setText("The source URL is missing.");
+                    
+                    statusBarLabel.setText(
+                            String.format(
+                                    "%s cannot be empty.", 
+                                    getParameterName(sourceTextField)));
                     return false;
                 }
                 
@@ -512,11 +517,16 @@ public final class WikiGameKillerFX extends Application {
                 final String targetUrl = targetTextField.getText();
                 
                 if (targetUrl.isBlank()) {
+                    setTextFieldWarning(targetTextField);
                     
+                    statusBarLabel.setText(
+                            String.format(
+                                    "%s cannot be empty.", 
+                                    getParameterName(targetTextField)));
                     return false;
                 }
                 
-                checkSourceUrl(targetUrl);
+                checkTargetUrl(targetUrl);
                 
                 targetUrlLanguageCode = getLanguageCode(targetUrl);
             } catch (final IllegalArgumentException ex) {
@@ -579,7 +589,11 @@ public final class WikiGameKillerFX extends Application {
             
             textField.setText(newValue);
             unsetTextFieldWarning(textField);
-            reportInputStatus();
+            
+            if (reportInputStatus()) {
+                statusBarLabel.setText("");
+                searchButton.setDisable(false);
+            }
         }
     }
     
@@ -609,7 +623,11 @@ public final class WikiGameKillerFX extends Application {
                 Integer.parseInt(newValue);
                 textField.setText(newValue);
                 unsetTextFieldWarning(textField);
-                reportInputStatus();
+                
+                if (reportInputStatus()) {
+                    statusBarLabel.setText("");
+                    searchButton.setDisable(false);
+                }
             } catch (final NumberFormatException ex) {
                 textField.setText(oldValue);
             }
