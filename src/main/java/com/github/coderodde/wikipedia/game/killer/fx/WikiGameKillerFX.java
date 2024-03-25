@@ -298,17 +298,24 @@ public final class WikiGameKillerFX extends Application {
                         .withSlaveThreadSleepDurationMillis(slaveSleep)
                         .end();
                 
+                
+                
                 final AbstractNodeExpander<String> forwardNodeExpander = 
                         new ForwardLinkExpander(sourceUrlLanguageCode);
                 
                 final AbstractNodeExpander<String> backwardNodeExpander = 
                         new BackwardLinkExpander(targetUrlLanguageCode);
                 
+                final String sourceArticleTitle = stripHostFromURL(sourceUrl);
+                final String targetArticleTitle = stripHostFromURL(targetUrl);
+                
+                haltButton.setDisable(false);
+                
                 final List<String> path =
                         ThreadPoolBidirectionalBFSPathFinderSearchBuilder
                         .<String>withPathFinder(finder)
-                        .withSourceNode(sourceUrl)
-                        .withTargetNode(targetUrl)
+                        .withSourceNode(sourceArticleTitle)
+                        .withTargetNode(targetArticleTitle)
                         .withForwardNodeExpander(forwardNodeExpander)
                         .withBackwardNodeExpander(backwardNodeExpander)
                         .search();
@@ -322,7 +329,7 @@ public final class WikiGameKillerFX extends Application {
                 path.forEach(System.out::println);
                 
             } else {
-                
+                System.out.println("OOps!");
             }
         });
         
@@ -700,6 +707,18 @@ public final class WikiGameKillerFX extends Application {
         }
         
         return result;
+    }
+    
+    /**
+     * Strips the host from the input URL. For example, 
+     * {@code en.wikipedia.org/wiki/Audi} becomes simply {@code Audi}.
+     * 
+     * @param url the URL from which to strip the host address.
+     * 
+     * @return the title of the Wikipedia article. 
+     */
+    private static String stripHostFromURL(final String url) {
+        return url.substring(url.lastIndexOf("/") + 1);
     }
     
     /**
