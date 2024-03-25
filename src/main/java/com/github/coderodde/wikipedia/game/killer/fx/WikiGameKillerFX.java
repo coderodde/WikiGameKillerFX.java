@@ -19,10 +19,13 @@ import java.util.Locale;
 import java.util.regex.Pattern;
 import javafx.application.Application;
 import static javafx.application.Application.launch;
+import javafx.application.Platform;
 import javafx.beans.value.ChangeListener;
 import javafx.beans.value.ObservableValue;
 import javafx.concurrent.Task;
+import javafx.concurrent.WorkerStateEvent;
 import javafx.event.ActionEvent;
+import javafx.event.EventHandler;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
@@ -33,6 +36,7 @@ import javafx.scene.control.ButtonType;
 import javafx.scene.control.Hyperlink;
 import javafx.scene.control.Label;
 import javafx.scene.control.ProgressBar;
+import javafx.scene.control.Separator;
 import javafx.scene.control.TextField;
 import javafx.scene.layout.Border;
 import javafx.scene.layout.BorderStroke;
@@ -113,7 +117,7 @@ public final class WikiGameKillerFX extends Application {
                                 CornerRadii.EMPTY, 
                                 BorderWidths.DEFAULT));
     
-    private final Stage resultTextFlowStage = new Stage();
+    private final StackPane resultsRoot = new StackPane();
      
     public static void main(String[] args) {
         launch(args);
@@ -123,7 +127,9 @@ public final class WikiGameKillerFX extends Application {
     public void start(Stage primaryStage) {
         
         primaryStage.setTitle("WikiGameKillerFX.java 1.0.0");
+        final Stage resultTextFlowStage = new Stage();
         resultTextFlowStage.setTitle("Result");
+        resultTextFlowStage.setScene(new Scene(resultsRoot));
         
         final VBox mainBox = new VBox();
         
@@ -303,6 +309,12 @@ public final class WikiGameKillerFX extends Application {
                 haltButton.setDisable(false);
                 
                 final SearchTask searchTask = new SearchTask();
+                
+                searchTask.addEventHandler(WorkerStateEvent.WORKER_STATE_SUCCEEDED, 
+                                          (WorkerStateEvent t) -> {
+                    System.out.println(t);
+                    System.out.println("doneeee");
+                });
                 
                 searchTask.finder = finder;
                 searchTask.sourceUrl = sourceUrl;
@@ -740,6 +752,7 @@ public final class WikiGameKillerFX extends Application {
         
         final List<String> urls = addHosts(titles, languageCode);
         final List<Hyperlink> hyperlinks = getHyperlinks(urls);
+        final Separator separator = new Separator();
         final Text statisticsText = 
                 new Text(
                         String.format(
@@ -748,18 +761,30 @@ public final class WikiGameKillerFX extends Application {
                                 duration,
                                 numberOfExpandedNodes));
         
-        final Node[] nodes = new Node[1 + titles.size()];
+        statisticsText.setFont(FONT);
+        
+        final Node[] nodes = new Node[1 + 2 * titles.size()];
         
         nodes[0] = statisticsText;
         
+        int index = 1;
+        
         for (int i = 0; i < hyperlinks.size(); i++) {
-            nodes[i + 1] = hyperlinks.get(i);
+            nodes[index] = separator;
+            nodes[index + 1] = hyperlinks.get(i);
+            hyperlinks.get(i).setFont(FONT);
+            index += 2;
         }
         
         resultTextFlow = new TextFlow(nodes);
-        resultTextFlow.setPrefSize(150, 300);
-        resultTextFlowStage.setScene(new Scene(resultTextFlow));
-        resultTextFlowStage.show();
+        
+        Platform.runLater(new Runnable() {
+            @Override
+            public void run() {
+                resultsRoot.getChildren().clear();
+                resultsRoot.getChildren().add(resultTextFlow);
+            }
+        });
     }
     
     private static List<Hyperlink> getHyperlinks(final List<String> urls) {
@@ -925,18 +950,18 @@ public final class WikiGameKillerFX extends Application {
                     (int) finder.getDuration(), 
                     finder.getNumberOfExpandedNodes());
             
-//            System.out.printf(
-//                    "[STATISTICS] Duration: %d milliseconds. " + 
-//                    "Number of expanded nodes: %d.\n", 
-//                    finder.getDuration(), 
-//                    finder.getNumberOfExpandedNodes());
-//            
-//            if (path.isEmpty()) {
-//                System.out.println("No path found.");
-//            } else {
-//                System.out.println("Path:");
-//                path.forEach(System.out::println);
-//            }
+            System.out.printf(
+                    "[STATISTICS] Duration: %d milliseconds. " + 
+                    "Number of expanded nodes: %d.\n", 
+                    finder.getDuration(), 
+                    finder.getNumberOfExpandedNodes());
+            
+            if (path.isEmpty()) {
+                System.out.println("No path found.");
+            } else {
+                System.out.println("Path:");
+                path.forEach(System.out::println);
+            }
             
             return path;
         }
