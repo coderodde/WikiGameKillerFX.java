@@ -80,6 +80,10 @@ public final class WikiGameKillerFX extends Application {
     private final TextField masterTrialsTextField       = new TextField();
     private final TextField masterSleepTextField        = new TextField();
     private final TextField slaveSleepTextField         = new TextField();
+        
+    private final Button searchButton          = new Button("Search");
+    private final Button haltButton            = new Button("Halt");
+    private final Button defaultSettingsButton = new Button("Set defaults");
     
     private final ProgressBar progressBar = new ProgressBar(100.0);
     
@@ -206,9 +210,8 @@ public final class WikiGameKillerFX extends Application {
         
         setDefaultSettings();
         
-        final Button searchButton          = new Button("Search");
-        final Button haltButton            = new Button("Halt");
-        final Button defaultSettingsButton = new Button("Set defaults");
+        searchButton.setDisable(true);
+        haltButton.setDisable(true);
         
         statusBarHBox.setMaxHeight(30.0);
         
@@ -246,11 +249,11 @@ public final class WikiGameKillerFX extends Application {
             String sourceUrlLanguageCode;
             String targetUrlLanguageCode;
             
-            final boolean ok = reportTopmostMissingTextField();
+            final boolean ok = reportInputStatus();
             
             if (ok) {
-                final String sourceUrl      = sourceTextField.getText();
-                final String targetUrl      = targetTextField.getText();
+                final String sourceUrl = sourceTextField.getText();
+                final String targetUrl = targetTextField.getText();
                 
                 try {
                     checkSourceUrl(sourceUrl);
@@ -309,6 +312,14 @@ public final class WikiGameKillerFX extends Application {
                         .withForwardNodeExpander(forwardNodeExpander)
                         .withBackwardNodeExpander(backwardNodeExpander)
                         .search();
+                
+                System.out.printf(
+                        "[STATISTICS] Duration: %d milliseconds. " + 
+                        "Expanded nodes: %d.\n", 
+                        finder.getDuration(), 
+                        finder.getNumberOfExpandedNodes());
+                
+                path.forEach(System.out::println);
                 
             } else {
                 
@@ -396,6 +407,10 @@ public final class WikiGameKillerFX extends Application {
         
         final TextField topmostWarningTextField = getTopmostEmptyTextField();
         
+        if (topmostWarningTextField == null) {
+            return;
+        }
+        
         statusBarLabel.setStyle("-fx-text-inner-color: red;");
         statusBarLabel.setText(
                 getParameterName(topmostWarningTextField)
@@ -463,13 +478,74 @@ public final class WikiGameKillerFX extends Application {
         throw new IllegalStateException("Should not get here.");
     }
     
-    private boolean reportTopmostMissingTextField() {
+    private boolean reportInputStatus() {
         final TextField topmostWarningTextField = 
                 getTopmostEmptyTextField();
 
+        TextField failingTextField = null;
+        String failingTextFieldText = null;
+        
         if (topmostWarningTextField == null) {
-            statusBarLabel.setText("");
-            return true;
+                        
+            String sourceUrlLanguageCode = null;
+            String targetUrlLanguageCode = null;
+            
+            try {
+                final String sourceUrl = sourceTextField.getText();
+                
+                if (sourceUrl.isBlank()) {
+                    setTextFieldWarning(sourceTextField);
+                    statusBarLabel.setText("The source URL is missing.");
+                    return false;
+                }
+                
+                checkSourceUrl(sourceUrl);
+                
+                sourceUrlLanguageCode = getLanguageCode(sourceUrl);
+            } catch (final IllegalArgumentException ex) {
+                setTextFieldWarning(sourceTextField);
+                failingTextField = sourceTextField;
+                failingTextFieldText = ex.getMessage();
+            }
+            
+            try {
+                final String targetUrl = targetTextField.getText();
+                
+                if (targetUrl.isBlank()) {
+                    
+                    return false;
+                }
+                
+                checkSourceUrl(targetUrl);
+                
+                targetUrlLanguageCode = getLanguageCode(targetUrl);
+            } catch (final IllegalArgumentException ex) {
+                setTextFieldWarning(targetTextField);
+                
+                if (failingTextField == null) {
+                    failingTextField = targetTextField;
+                    failingTextFieldText = ex.getMessage();
+                }
+            }
+            
+            if (failingTextField != null) {
+                setTextFieldWarning(failingTextField);
+                statusBarLabel.setText(failingTextFieldText);
+                return false;
+            }
+            
+            if (!sourceUrlLanguageCode.equals(targetUrlLanguageCode)) {
+                setTextFieldWarning(sourceTextField);
+                setTextFieldWarning(targetTextField);
+                statusBarLabel.setText(
+                        String.format(
+                                "Language mismatch: \"%s\" vs \"%s\".", 
+                                sourceUrlLanguageCode, 
+                                targetUrlLanguageCode));
+                return false;
+            } else {
+                return true;
+            }
         }
         
         statusBarLabel.setText(
@@ -496,13 +572,14 @@ public final class WikiGameKillerFX extends Application {
                 final String newValue) {
             
             if (newValue.isBlank()) {
+                reportInputStatus();
                 setTextFieldWarning(textField);
                 return;
             }
             
             textField.setText(newValue);
             unsetTextFieldWarning(textField);
-            reportTopmostMissingTextField();
+            reportInputStatus();
         }
     }
     
@@ -524,7 +601,7 @@ public final class WikiGameKillerFX extends Application {
             if (newValue.trim().equals("")) {   
                 textField.setText("");
                 setTextFieldWarning(textField);
-                reportTopmostMissingTextField();
+                reportInputStatus();
                 return;
             }
             
@@ -532,7 +609,7 @@ public final class WikiGameKillerFX extends Application {
                 Integer.parseInt(newValue);
                 textField.setText(newValue);
                 unsetTextFieldWarning(textField);
-                reportTopmostMissingTextField();
+                reportInputStatus();
             } catch (final NumberFormatException ex) {
                 textField.setText(oldValue);
             }
