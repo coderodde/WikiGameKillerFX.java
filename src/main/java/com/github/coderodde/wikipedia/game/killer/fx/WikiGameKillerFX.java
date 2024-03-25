@@ -7,6 +7,10 @@ import com.github.coderodde.graph.pathfinding.delayed.impl.ThreadPoolBidirection
 import com.github.coderodde.graph.pathfinding.delayed.impl.ThreadPoolBidirectionalBFSPathFinderSearchBuilder;
 import com.github.coderodde.wikipedia.graph.expansion.BackwardWikipediaGraphNodeExpander;
 import com.github.coderodde.wikipedia.graph.expansion.ForwardWikipediaGraphNodeExpander;
+import java.awt.Desktop;
+import java.io.IOException;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -21,13 +25,14 @@ import javafx.concurrent.Task;
 import javafx.event.ActionEvent;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.ButtonType;
+import javafx.scene.control.Hyperlink;
 import javafx.scene.control.Label;
 import javafx.scene.control.ProgressBar;
-import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
 import javafx.scene.layout.Border;
 import javafx.scene.layout.BorderStroke;
@@ -40,6 +45,8 @@ import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
+import javafx.scene.text.Text;
+import javafx.scene.text.TextFlow;
 import javafx.stage.Stage;
 
 public final class WikiGameKillerFX extends Application {
@@ -90,7 +97,8 @@ public final class WikiGameKillerFX extends Application {
     
     private volatile AbstractDelayedGraphPathFinder<String> finder;
     
-    private final TextArea resultTextArea = new TextArea();
+    private TextFlow resultTextFlow;
+    
     
     private final HBox statusBarHBox = new HBox();
     private final Label statusBarLabel = new Label();
@@ -104,6 +112,8 @@ public final class WikiGameKillerFX extends Application {
                                 BorderStrokeStyle.SOLID, 
                                 CornerRadii.EMPTY, 
                                 BorderWidths.DEFAULT));
+    
+    private final Stage resultTextFlowStage = new Stage();
      
     public static void main(String[] args) {
         launch(args);
@@ -111,6 +121,9 @@ public final class WikiGameKillerFX extends Application {
     
     @Override
     public void start(Stage primaryStage) {
+        
+        primaryStage.setTitle("WikiGameKillerFX.java 1.0.0");
+        resultTextFlowStage.setTitle("Result");
         
         final VBox mainBox = new VBox();
         
@@ -256,31 +269,12 @@ public final class WikiGameKillerFX extends Application {
             if (ok) {
                 final String sourceUrl = sourceTextField.getText();
                 final String targetUrl = targetTextField.getText();
+
+                final String sourceUrlTitle = stripHostFromURL(sourceUrl);
+                final String targetUrlTitle = stripHostFromURL(targetUrl);
                 
-                try {
-                    checkSourceUrl(sourceUrl);
-                    checkTargetUrl(targetUrl);
-                    
-                    sourceUrlLanguageCode = getLanguageCode(sourceUrl);
-                    targetUrlLanguageCode = getLanguageCode(targetUrl);
-                    
-                    if (!sourceUrlLanguageCode.equals(targetUrlLanguageCode)) {
-                        throw new IllegalArgumentException(
-                                String.format(
-                                        "Conflicting language codes: %s vs %s.\n",
-                                        sourceUrlLanguageCode,
-                                        targetUrlLanguageCode));
-                    }
-                    
-                } catch (final IllegalArgumentException ex) {
-                    Alert alert = new Alert(Alert.AlertType.ERROR, 
-                                            ex.getMessage(), 
-                                            ButtonType.OK);
-                    
-                    alert.showAndWait();
-                    searchButton.setDisable(false);
-                    return;
-                }
+                final String sourceLanguageCode = getLanguageCode(sourceUrl);
+                final String targetLanguageCode = getLanguageCode(targetUrl);
                 
                 final int threads           = Integer.parseInt(threadsTextField.getText());
                 final int lockWaitDuration  = Integer.parseInt(waitTimeoutTextField.getText());
@@ -301,13 +295,10 @@ public final class WikiGameKillerFX extends Application {
                         .end();
                 
                 final AbstractNodeExpander<String> forwardNodeExpander = 
-                        new ForwardLinkExpander(sourceUrlLanguageCode);
+                        new ForwardLinkExpander(sourceLanguageCode);
                 
                 final AbstractNodeExpander<String> backwardNodeExpander = 
-                        new BackwardLinkExpander(targetUrlLanguageCode);
-                
-                final String sourceArticleTitle = stripHostFromURL(sourceUrl);
-                final String targetArticleTitle = stripHostFromURL(targetUrl);
+                        new BackwardLinkExpander(targetLanguageCode);
                 
                 haltButton.setDisable(false);
                 
@@ -322,24 +313,6 @@ public final class WikiGameKillerFX extends Application {
                 final Thread searchThread = new Thread(searchTask);
                 searchThread.setDaemon(true);
                 searchThread.start();
-                
-//                final List<String> path =
-//                        ThreadPoolBidirectionalBFSPathFinderSearchBuilder
-//                        .<String>withPathFinder(finder)
-//                        .withSourceNode(sourceArticleTitle)
-//                        .withTargetNode(targetArticleTitle)
-//                        .withForwardNodeExpander(forwardNodeExpander)
-//                        .withBackwardNodeExpander(backwardNodeExpander)
-//                        .search();
-//                
-//                System.out.printf(
-//                        "[STATISTICS] Duration: %d milliseconds. " + 
-//                        "Expanded nodes: %d.\n", 
-//                        finder.getDuration(), 
-//                        finder.getNumberOfExpandedNodes());
-//                
-//                path.forEach(System.out::println);
-//                
             } else {
                 System.out.println("OOps!");
             }
@@ -383,6 +356,8 @@ public final class WikiGameKillerFX extends Application {
         
         final StackPane root = new StackPane();
         root.getChildren().add(mainBox);
+        
+        resultTextFlowStage.show();
         
         primaryStage.setScene(new Scene(root));
         primaryStage.show();
@@ -758,6 +733,82 @@ public final class WikiGameKillerFX extends Application {
         return url.substring(url.lastIndexOf("/") + 1);
     }
     
+    private void reportResults(final List<String> titles,
+                               final String languageCode,
+                               final int duration,
+                               final int numberOfExpandedNodes) {
+        
+        final List<String> urls = addHosts(titles, languageCode);
+        final List<Hyperlink> hyperlinks = getHyperlinks(urls);
+        final Text statisticsText = 
+                new Text(
+                        String.format(
+                                "[STATISTICS] Duration: %d milliseconds. " +
+                                "Number of expanded nodes: %d.\n", 
+                                duration,
+                                numberOfExpandedNodes));
+        
+        final Node[] nodes = new Node[1 + titles.size()];
+        
+        nodes[0] = statisticsText;
+        
+        for (int i = 0; i < hyperlinks.size(); i++) {
+            nodes[i + 1] = hyperlinks.get(i);
+        }
+        
+        resultTextFlow = new TextFlow(nodes);
+        resultTextFlow.setPrefSize(150, 300);
+        resultTextFlowStage.setScene(new Scene(resultTextFlow));
+        resultTextFlowStage.show();
+    }
+    
+    private static List<Hyperlink> getHyperlinks(final List<String> urls) {
+        final List<Hyperlink> hyperlinkList = new ArrayList<>(urls.size());
+        
+        for (final String url : urls) {
+            final Hyperlink hyperlink = new Hyperlink();
+            hyperlink.setText(url);
+            hyperlink.setOnAction((actionEvent) -> {
+                if (Desktop.isDesktopSupported() &&
+                    Desktop.getDesktop()
+                           .isSupported(Desktop.Action.BROWSE)) {
+                    try {
+                        Desktop.getDesktop().browse(new URI(url));
+                    } catch (URISyntaxException | IOException ex) {
+                        final Alert alert = 
+                                new Alert(
+                                        Alert.AlertType.ERROR, 
+                                        String.format(
+                                                "Could not open %s!",
+                                                url), 
+                                        ButtonType.OK);
+                        
+                        alert.showAndWait();
+                    }
+                }
+            });
+            
+            hyperlinkList.add(hyperlink);
+        }
+        
+        return hyperlinkList;
+    }
+    
+    private static List<String> addHosts(final List<String> titles,
+                                         final String languageCode) {
+        final List<String> result = new ArrayList<>(titles.size());
+        
+        for (final String title : titles) {
+            result.add(
+                    String.format(
+                            "https://%s.wikipedia.org/wiki/%s", 
+                            languageCode, 
+                            title));
+        }
+        
+        return result;
+    }
+    
     /**
      * This class implements the forward link expander.
      */
@@ -866,18 +917,26 @@ public final class WikiGameKillerFX extends Application {
                     .withBackwardNodeExpander(backwardExpander)
                     .search();
             
-            System.out.printf(
-                    "[STATISTICS] Duration: %d milliseconds. " + 
-                    "Number of expanded nodes: %d.\n", 
-                    finder.getDuration(), 
+            final String languageCode = getLanguageCode(sourceUrl);
+            
+            reportResults(
+                    path,
+                    languageCode, 
+                    (int) finder.getDuration(), 
                     finder.getNumberOfExpandedNodes());
             
-            if (path.isEmpty()) {
-                System.out.println("No path found.");
-            } else {
-                System.out.println("Path:");
-                path.forEach(System.out::println);
-            }
+//            System.out.printf(
+//                    "[STATISTICS] Duration: %d milliseconds. " + 
+//                    "Number of expanded nodes: %d.\n", 
+//                    finder.getDuration(), 
+//                    finder.getNumberOfExpandedNodes());
+//            
+//            if (path.isEmpty()) {
+//                System.out.println("No path found.");
+//            } else {
+//                System.out.println("Path:");
+//                path.forEach(System.out::println);
+//            }
             
             return path;
         }
