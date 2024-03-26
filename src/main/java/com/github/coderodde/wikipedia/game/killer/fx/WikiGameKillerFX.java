@@ -16,6 +16,9 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
+import java.util.concurrent.ExecutionException;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.regex.Pattern;
 import javafx.application.Application;
 import static javafx.application.Application.launch;
@@ -25,7 +28,6 @@ import javafx.beans.value.ObservableValue;
 import javafx.concurrent.Task;
 import javafx.concurrent.WorkerStateEvent;
 import javafx.event.ActionEvent;
-import javafx.event.EventHandler;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
@@ -101,8 +103,7 @@ public final class WikiGameKillerFX extends Application {
     
     private volatile AbstractDelayedGraphPathFinder<String> finder;
     
-    private TextFlow resultTextFlow;
-    
+    private Stage resultsStage;
     
     private final HBox statusBarHBox = new HBox();
     private final Label statusBarLabel = new Label();
@@ -116,8 +117,6 @@ public final class WikiGameKillerFX extends Application {
                                 BorderStrokeStyle.SOLID, 
                                 CornerRadii.EMPTY, 
                                 BorderWidths.DEFAULT));
-    
-    private final StackPane resultsRoot = new StackPane();
      
     public static void main(String[] args) {
         launch(args);
@@ -127,9 +126,6 @@ public final class WikiGameKillerFX extends Application {
     public void start(Stage primaryStage) {
         
         primaryStage.setTitle("WikiGameKillerFX.java 1.0.0");
-        final Stage resultTextFlowStage = new Stage();
-        resultTextFlowStage.setTitle("Result");
-        resultTextFlowStage.setScene(new Scene(resultsRoot));
         
         final VBox mainBox = new VBox();
         
@@ -267,17 +263,11 @@ public final class WikiGameKillerFX extends Application {
             searchButton.setDisable(true);
             haltButton.setDisable(false);
             
-            String sourceUrlLanguageCode;
-            String targetUrlLanguageCode;
-            
             final boolean ok = reportInputStatus();
             
             if (ok) {
                 final String sourceUrl = sourceTextField.getText();
                 final String targetUrl = targetTextField.getText();
-
-                final String sourceUrlTitle = stripHostFromURL(sourceUrl);
-                final String targetUrlTitle = stripHostFromURL(targetUrl);
                 
                 final String sourceLanguageCode = getLanguageCode(sourceUrl);
                 final String targetLanguageCode = getLanguageCode(targetUrl);
@@ -309,24 +299,30 @@ public final class WikiGameKillerFX extends Application {
                 haltButton.setDisable(false);
                 
                 final SearchTask searchTask = new SearchTask();
-                
-                searchTask.addEventHandler(WorkerStateEvent.WORKER_STATE_SUCCEEDED, 
-                                          (WorkerStateEvent t) -> {
-                    System.out.println(t);
-                    System.out.println("doneeee");
-                });
-                
+
                 searchTask.finder = finder;
-                searchTask.sourceUrl = sourceUrl;
-                searchTask.targetUrl = targetUrl;
+                searchTask.source = stripHostFromURL(sourceUrl);
+                searchTask.target = stripHostFromURL(targetUrl);
+                searchTask.languageCode = sourceLanguageCode;
                 searchTask.forwardExpander = forwardNodeExpander;
                 searchTask.backwardExpander = backwardNodeExpander;
-                
+
                 final Thread searchThread = new Thread(searchTask);
-                searchThread.setDaemon(true);
                 searchThread.start();
-            } else {
-                System.out.println("OOps!");
+                
+                try {
+                    final List<String> path = searchTask.get();
+                    
+                    reportResults(path,
+                                  targetLanguageCode,
+                                  (int) finder.getDuration(), 
+                                  finder.getNumberOfExpandedNodes());
+                    
+                } catch (InterruptedException ex) {
+                    Logger.getLogger(WikiGameKillerFX.class.getName()).log(Level.SEVERE, null, ex);
+                } catch (ExecutionException ex) {
+                    Logger.getLogger(WikiGameKillerFX.class.getName()).log(Level.SEVERE, null, ex);
+                }
             }
         });
         
@@ -368,8 +364,6 @@ public final class WikiGameKillerFX extends Application {
         
         final StackPane root = new StackPane();
         root.getChildren().add(mainBox);
-        
-        resultTextFlowStage.show();
         
         primaryStage.setScene(new Scene(root));
         primaryStage.show();
@@ -752,7 +746,6 @@ public final class WikiGameKillerFX extends Application {
         
         final List<String> urls = addHosts(titles, languageCode);
         final List<Hyperlink> hyperlinks = getHyperlinks(urls);
-        final Separator separator = new Separator();
         final Text statisticsText = 
                 new Text(
                         String.format(
@@ -770,20 +763,26 @@ public final class WikiGameKillerFX extends Application {
         int index = 1;
         
         for (int i = 0; i < hyperlinks.size(); i++) {
-            nodes[index] = separator;
+            nodes[index] = new Separator();
             nodes[index + 1] = hyperlinks.get(i);
             hyperlinks.get(i).setFont(FONT);
             index += 2;
         }
         
-        resultTextFlow = new TextFlow(nodes);
-        
-        Platform.runLater(new Runnable() {
-            @Override
-            public void run() {
-                resultsRoot.getChildren().clear();
-                resultsRoot.getChildren().add(resultTextFlow);
+        Platform.runLater(() -> {
+            
+            if (resultsStage != null) {
+                resultsStage.close();
             }
+            
+            resultsStage = new Stage();
+            
+            final TextFlow textFlow = new TextFlow(nodes);
+            final StackPane resultsRoot = new StackPane(textFlow);
+            
+            resultsStage.setScene(new Scene(resultsRoot, 400, 150));
+            resultsStage.setTitle("Search results");
+            resultsStage.show();
         });
     }
     
@@ -921,49 +920,22 @@ public final class WikiGameKillerFX extends Application {
     
     private final class SearchTask extends Task<List<String>> {
 
-        String sourceUrl;
-        String targetUrl;
+        String source;
+        String target;
+        String languageCode;
         AbstractDelayedGraphPathFinder<String> finder;
         AbstractNodeExpander<String> forwardExpander;
         AbstractNodeExpander<String> backwardExpander;
         
         @Override
         protected List<String> call() throws Exception {
-            System.out.printf("Searching for path from %s to %s.\n",
-                              sourceUrl,
-                              targetUrl);
-            
-            List<String> path = 
-                    ThreadPoolBidirectionalBFSPathFinderSearchBuilder
+            return ThreadPoolBidirectionalBFSPathFinderSearchBuilder
                     .<String>withPathFinder(finder)
-                    .withSourceNode(stripHostFromURL(sourceUrl))
-                    .withTargetNode(stripHostFromURL(targetUrl))
+                    .withSourceNode(source)
+                    .withTargetNode(target)
                     .withForwardNodeExpander(forwardExpander)
                     .withBackwardNodeExpander(backwardExpander)
                     .search();
-            
-            final String languageCode = getLanguageCode(sourceUrl);
-            
-            reportResults(
-                    path,
-                    languageCode, 
-                    (int) finder.getDuration(), 
-                    finder.getNumberOfExpandedNodes());
-            
-            System.out.printf(
-                    "[STATISTICS] Duration: %d milliseconds. " + 
-                    "Number of expanded nodes: %d.\n", 
-                    finder.getDuration(), 
-                    finder.getNumberOfExpandedNodes());
-            
-            if (path.isEmpty()) {
-                System.out.println("No path found.");
-            } else {
-                System.out.println("Path:");
-                path.forEach(System.out::println);
-            }
-            
-            return path;
         }
     }
 }
