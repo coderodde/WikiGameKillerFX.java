@@ -87,5 +87,11 @@
             <artifactId>WikipediaGraphNodeExpanders.java</artifactId>
             <version>1.0.0</version>
         </dependency>
+        <dependency>
+            <groupId>org.openjfx</groupId>
+            <artifactId>javafx-web</artifactId>
+            <version>17</version>
+            <type>jar</type>
+        </dependency>
     </dependencies>
 </project>

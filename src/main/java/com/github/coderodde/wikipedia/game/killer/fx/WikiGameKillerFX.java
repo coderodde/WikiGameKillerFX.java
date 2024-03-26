@@ -26,9 +26,10 @@ import javafx.application.Platform;
 import javafx.beans.value.ChangeListener;
 import javafx.beans.value.ObservableValue;
 import javafx.concurrent.Task;
-import javafx.concurrent.WorkerStateEvent;
 import javafx.event.ActionEvent;
+import javafx.event.EventHandler;
 import javafx.geometry.Insets;
+import javafx.geometry.Orientation;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.Scene;
@@ -52,8 +53,8 @@ import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.scene.text.Text;
-import javafx.scene.text.TextFlow;
 import javafx.stage.Stage;
+import javafx.stage.WindowEvent;
 
 public final class WikiGameKillerFX extends Application {
 
@@ -104,6 +105,8 @@ public final class WikiGameKillerFX extends Application {
     private volatile AbstractDelayedGraphPathFinder<String> finder;
     
     private Stage resultsStage;
+    private Stage primaryStage;
+    private Scene primaryScene;
     
     private final HBox statusBarHBox = new HBox();
     private final Label statusBarLabel = new Label();
@@ -124,8 +127,16 @@ public final class WikiGameKillerFX extends Application {
     
     @Override
     public void start(Stage primaryStage) {
+        this.primaryStage = primaryStage;
         
         primaryStage.setTitle("WikiGameKillerFX.java 1.0.0");
+        primaryStage.setOnCloseRequest(new EventHandler<WindowEvent>() {
+            @Override
+            public void handle(WindowEvent t) {
+                Platform.exit();
+                System.exit(0);
+            }
+        });
         
         final VBox mainBox = new VBox();
         
@@ -260,8 +271,10 @@ public final class WikiGameKillerFX extends Application {
         });
         
         searchButton.setOnAction((ActionEvent actionEvent) -> {
-            searchButton.setDisable(true);
-            haltButton.setDisable(false);
+            Platform.runLater(() -> {
+                searchButton.setDisable(true);
+                haltButton.setDisable(false);
+            });
             
             final boolean ok = reportInputStatus();
             
@@ -365,21 +378,15 @@ public final class WikiGameKillerFX extends Application {
         final StackPane root = new StackPane();
         root.getChildren().add(mainBox);
         
-        primaryStage.setScene(new Scene(root));
+        primaryStage.setScene(this.primaryScene = new Scene(root));
         primaryStage.show();
     }
     
     private void setDefaultSettings() {
         
-        threadsTextField.setText(
-                Integer.toString(
-                        ThreadPoolBidirectionalBFSPathFinder
-                                .DEFAULT_NUMBER_OF_THREADS));
+        threadsTextField.setText("128");
         
-        expansionoDurationTextField.setText(
-                Integer.toString(
-                        ThreadPoolBidirectionalBFSPathFinder
-                                .DEFAULT_EXPANSION_JOIN_DURATION_MILLIS));
+        expansionoDurationTextField.setText("4000");
         
         waitTimeoutTextField.setText(
                 Integer.toString(
@@ -750,7 +757,7 @@ public final class WikiGameKillerFX extends Application {
                 new Text(
                         String.format(
                                 "[STATISTICS] Duration: %d milliseconds. " +
-                                "Number of expanded nodes: %d.\n", 
+                                "Number of expanded nodes: %d.", 
                                 duration,
                                 numberOfExpandedNodes));
         
@@ -763,8 +770,8 @@ public final class WikiGameKillerFX extends Application {
         int index = 1;
         
         for (int i = 0; i < hyperlinks.size(); i++) {
-            nodes[index] = new Separator();
-            nodes[index + 1] = hyperlinks.get(i);
+            nodes[index] = new Separator(Orientation.VERTICAL);
+            nodes[index + 1] = hyperlinks.get(i);   
             hyperlinks.get(i).setFont(FONT);
             index += 2;
         }
@@ -777,10 +784,19 @@ public final class WikiGameKillerFX extends Application {
             
             resultsStage = new Stage();
             
-            final TextFlow textFlow = new TextFlow(nodes);
-            final StackPane resultsRoot = new StackPane(textFlow);
+            final VBox vbox = new VBox();
+            vbox.getChildren().addAll(nodes);
             
-            resultsStage.setScene(new Scene(resultsRoot, 400, 150));
+            final StackPane resultsRoot = new StackPane(vbox);
+            
+            resultsStage.setScene(new Scene(resultsRoot, 
+                                            500,
+                                            primaryScene.getHeight()));
+            
+            resultsStage.setY(primaryStage.getY());
+            resultsStage.setX(primaryStage.getX() +
+                              primaryStage.getWidth() + 10);
+            
             resultsStage.setTitle("Search results");
             resultsStage.show();
         });
