@@ -762,8 +762,8 @@ public final class WikiGameKillerFX extends Application {
         final Text statisticsText = 
                 new Text(
                         String.format(
-                                "[STATISTICS] Duration: %d milliseconds. " +
-                                "Number of expanded nodes: %d.", 
+                                "[STATISTICS] Duration: %d milliseconds.\n" +
+                                "[STATISTICS] Number of expanded nodes: %d.", 
                                 duration,
                                 numberOfExpandedNodes));
         
@@ -777,6 +777,7 @@ public final class WikiGameKillerFX extends Application {
         
         for (int i = 0; i < hyperlinks.size(); i++) {
             final Separator separator = new Separator(Orientation.VERTICAL);
+            separator.setPadding(new Insets(-5, 0, -5, 0));
             nodes[index] = separator;
             nodes[index + 1] = hyperlinks.get(i);   
             hyperlinks.get(i).setFont(FONT);
