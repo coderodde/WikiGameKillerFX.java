@@ -64,6 +64,13 @@ public final class WikiGameKillerFX extends Application {
     private static final String WIKIPEDIA_URL_FORMAT =
             "^((http:\\/\\/)|(https:\\/\\/))?..\\.wikipedia\\.org\\/wiki\\/.+$";
     
+    private static final String SEPARATOR_CSS = 
+            ".separator {\n" + 
+            "  -fx-padding: 0px;\n" +
+            "  -fx-border-insets: 0px;\n" + 
+            "  -fx-border-width: 0px;\n" + 
+            "}";
+    
     /**
      * The Wikipedia URL regular expression pattern object.
      */
@@ -316,7 +323,6 @@ public final class WikiGameKillerFX extends Application {
                 searchTask.finder = finder;
                 searchTask.source = stripHostFromURL(sourceUrl);
                 searchTask.target = stripHostFromURL(targetUrl);
-                searchTask.languageCode = sourceLanguageCode;
                 searchTask.forwardExpander = forwardNodeExpander;
                 searchTask.backwardExpander = backwardNodeExpander;
 
@@ -770,7 +776,8 @@ public final class WikiGameKillerFX extends Application {
         int index = 1;
         
         for (int i = 0; i < hyperlinks.size(); i++) {
-            nodes[index] = new Separator(Orientation.VERTICAL);
+            final Separator separator = new Separator(Orientation.VERTICAL);
+            nodes[index] = separator;
             nodes[index + 1] = hyperlinks.get(i);   
             hyperlinks.get(i).setFont(FONT);
             index += 2;
@@ -788,10 +795,11 @@ public final class WikiGameKillerFX extends Application {
             vbox.getChildren().addAll(nodes);
             
             final StackPane resultsRoot = new StackPane(vbox);
+            final Scene resultsScene = new Scene(resultsRoot, 400, primaryScene.getHeight());
+            resultsScene.getStylesheets()
+                        .add(SEPARATOR_CSS);
             
-            resultsStage.setScene(new Scene(resultsRoot, 
-                                            500,
-                                            primaryScene.getHeight()));
+            resultsStage.setScene(resultsScene);
             
             resultsStage.setY(primaryStage.getY());
             resultsStage.setX(primaryStage.getX() +
@@ -938,7 +946,6 @@ public final class WikiGameKillerFX extends Application {
 
         String source;
         String target;
-        String languageCode;
         AbstractDelayedGraphPathFinder<String> finder;
         AbstractNodeExpander<String> forwardExpander;
         AbstractNodeExpander<String> backwardExpander;
