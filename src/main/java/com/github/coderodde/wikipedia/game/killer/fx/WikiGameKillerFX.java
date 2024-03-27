@@ -475,7 +475,7 @@ public final class WikiGameKillerFX extends Application {
         textField.setBorder(WARNING_BORDER);
         
         for (final TextField tf : textFieldList) {
-            if (tf.getText().isBlank()) {
+            if (tf.getText().isEmpty()) {
                 tf.setBorder(textFieldWarningBorder);
             } else {
                 tf.setBorder(null);
@@ -512,7 +512,7 @@ public final class WikiGameKillerFX extends Application {
     
     private TextField getTopmostEmptyTextField() {
         for (final TextField textField : textFieldList) {
-            if (textField.getText().isBlank()) {
+            if (textField.getText().isEmpty()) {
                 return textField;
             }
         }
@@ -571,7 +571,7 @@ public final class WikiGameKillerFX extends Application {
             try {
                 final String sourceUrl = sourceTextField.getText();
                 
-                if (sourceUrl.isBlank()) {
+                if (sourceUrl.trim().isEmpty()) {
                     setTextFieldWarning(sourceTextField);
                     
                     statusBarLabel.setText(
@@ -598,7 +598,7 @@ public final class WikiGameKillerFX extends Application {
             try {
                 final String targetUrl = targetTextField.getText();
                 
-                if (targetUrl.isBlank()) {
+                if (targetUrl.trim().isEmpty()) {
                     setTextFieldWarning(targetTextField);
                     searchButton.setDisable(true);
                     haltButton.setDisable(true);
@@ -675,7 +675,7 @@ public final class WikiGameKillerFX extends Application {
                 final String oldValue, 
                 final String newValue) {
             
-            if (newValue.isBlank()) {
+            if (newValue.isEmpty()) {
                 reportInputStatus();
                 setTextFieldWarning(textField);
                 return;
