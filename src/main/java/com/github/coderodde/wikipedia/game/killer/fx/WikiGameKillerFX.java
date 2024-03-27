@@ -26,6 +26,7 @@ import javafx.application.Platform;
 import javafx.beans.value.ChangeListener;
 import javafx.beans.value.ObservableValue;
 import javafx.concurrent.Task;
+import javafx.concurrent.WorkerStateEvent;
 import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
 import javafx.geometry.Insets;
@@ -136,7 +137,9 @@ public final class WikiGameKillerFX extends Application {
     public void start(Stage primaryStage) {
         this.primaryStage = primaryStage;
         
-        primaryStage.setTitle("WikiGameKillerFX.java 1.0.0");
+        primaryStage.setTitle(
+                "WikiGameKillerFX.java 1.0.0 (by Rodion \"rodde\" Efremov)");
+        
         primaryStage.setOnCloseRequest(new EventHandler<WindowEvent>() {
             @Override
             public void handle(WindowEvent t) {
@@ -325,23 +328,29 @@ public final class WikiGameKillerFX extends Application {
                 searchTask.target = stripHostFromURL(targetUrl);
                 searchTask.forwardExpander = forwardNodeExpander;
                 searchTask.backwardExpander = backwardNodeExpander;
+                
+                searchTask.setOnSucceeded(new EventHandler<WorkerStateEvent>() {
+                    @Override
+                    public void handle(
+                            final WorkerStateEvent workerStateEvent) {
+                        try {
+                            reportResults(
+                                    searchTask.get(),
+                                    sourceLanguageCode, 
+                                    (int) searchTask.finder.getDuration(),
+                                    searchTask.finder
+                                              .getNumberOfExpandedNodes());
+                            
+                        } catch (InterruptedException ex) {
+                            Logger.getLogger(WikiGameKillerFX.class.getName()).log(Level.SEVERE, null, ex);
+                        } catch (ExecutionException ex) {
+                            Logger.getLogger(WikiGameKillerFX.class.getName()).log(Level.SEVERE, null, ex);
+                        }
+                    }
+                });
 
                 final Thread searchThread = new Thread(searchTask);
                 searchThread.start();
-                
-                try {
-                    final List<String> path = searchTask.get();
-                    
-                    reportResults(path,
-                                  targetLanguageCode,
-                                  (int) finder.getDuration(), 
-                                  finder.getNumberOfExpandedNodes());
-                    
-                } catch (InterruptedException ex) {
-                    Logger.getLogger(WikiGameKillerFX.class.getName()).log(Level.SEVERE, null, ex);
-                } catch (ExecutionException ex) {
-                    Logger.getLogger(WikiGameKillerFX.class.getName()).log(Level.SEVERE, null, ex);
-                }
             }
         });
         
@@ -351,6 +360,8 @@ public final class WikiGameKillerFX extends Application {
                 searchButton.setDisable(false);
                 haltButton.setDisable(true);
                
+                reportHalt(finder);
+                
                 System.out.printf(
                         "Search halted after %s milliseconds " + 
                         "expanding %d nodes.\n", 
@@ -386,6 +397,51 @@ public final class WikiGameKillerFX extends Application {
         
         primaryStage.setScene(this.primaryScene = new Scene(root));
         primaryStage.show();
+    }
+    
+    private void reportHalt(
+            final AbstractDelayedGraphPathFinder<String> finder) {
+         final Text statisticsText = 
+                new Text(
+                    String.format(
+                        "[STATISTICS] Duration: %d milliseconds.\n" +
+                        "[STATISTICS] Number of expanded nodes: %d.", 
+                        finder.getDuration(),
+                        finder.getNumberOfExpandedNodes()));
+
+        statisticsText.setFont(FONT);
+           
+        final Text haltText = new Text("Search halted.");
+        haltText.setFont(FONT);
+        haltText.setStyle("-fx-text-fill: #f44;");
+        
+        final VBox box = new VBox();
+        box.getChildren().addAll(statisticsText, haltText);
+        
+        Platform.runLater(() -> {
+            
+            if (resultsStage != null) {
+                resultsStage.close();
+            }
+            
+            resultsStage = new Stage();
+            
+            final StackPane resultsRoot = new StackPane(box);
+            final Scene resultsScene = new Scene(resultsRoot,
+                                                 400, 
+                                                 primaryScene.getHeight());
+            resultsScene.getStylesheets()
+                        .add(SEPARATOR_CSS);
+            
+            resultsStage.setScene(resultsScene);
+            
+            resultsStage.setY(primaryStage.getY());
+            resultsStage.setX(primaryStage.getX() +
+                              primaryStage.getWidth() + 10);
+            
+            resultsStage.setTitle("Search results");
+            resultsStage.show();
+        });
     }
     
     private void setDefaultSettings() {
