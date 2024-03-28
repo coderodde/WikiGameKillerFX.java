@@ -100,7 +100,7 @@
             <groupId>org.openjfx</groupId>
             <artifactId>javafx-controls</artifactId>
             <version>20</version>
-            <classifier>win</classifier>
+            <type>jar</type>
         </dependency>
         <dependency>
             <groupId>org.openjfx</groupId>
