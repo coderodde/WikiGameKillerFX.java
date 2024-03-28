@@ -413,7 +413,7 @@ public final class WikiGameKillerFX extends Application {
            
         final Text haltText = new Text("Search halted.");
         haltText.setFont(FONT);
-        haltText.setStyle("-fx-text-fill: #f44;");
+        haltText.setStyle("-fx-text-fill: #ff4444;");
         
         final VBox box = new VBox();
         box.getChildren().addAll(statisticsText, haltText);
