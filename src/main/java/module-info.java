@@ -3,7 +3,9 @@ module coderodde.WikiGameKillerFXJava {
     requires java.logging;
     requires javafx.base;
     requires javafx.controls;
+    requires javafx.graphics;
+    requires transitive coderodde.ThreadPoolBidirectionalBFSPathFinder;
+    requires transitive coderodde.WikipediaGraphNodeExpanders;
     
-    requires coderodde.ThreadPoolBidirectionalBFSPathFinder;
-    requires coderodde.WikipediaGraphNodeExpanders;
+    exports com.github.coderodde.wikipedia.game.killer.fx;
 }

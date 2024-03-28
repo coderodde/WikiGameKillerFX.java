@@ -13,7 +13,7 @@
                 <exec.vmArgs>--module-path "C:\Users\PotilasKone\Documents\rd\sw\javafx-sdk-20.0.2\lib" --add-modules javafx.base,javafx.controls,javafx.fxml,javafx.graphics --add-exports javafx.graphics/com.sun.javafx.tk=ALL-UNNAMED</exec.vmArgs>
                 <exec.args>${exec.vmArgs} -classpath %classpath ${exec.mainClass} ${exec.appArgs}</exec.args>
                 <exec.appArgs></exec.appArgs>
-                <exec.mainClass>com.github.coderodde.wikipedia.game.killer.fx.Main</exec.mainClass>
+                <exec.mainClass>com.github.coderodde.wikipedia.game.killer.fx.WikiGameKillerFX</exec.mainClass>
                 <exec.executable>java</exec.executable>
             </properties>
         </action>
@@ -30,7 +30,7 @@
                 <exec.vmArgs>--module-path "C:\Users\PotilasKone\Documents\rd\sw\javafx-sdk-20.0.2\lib" --add-modules javafx.base,javafx.controls,javafx.fxml,javafx.graphics --add-exports javafx.graphics/com.sun.javafx.tk=ALL-UNNAMED -agentlib:jdwp=transport=dt_socket,server=n,address=${jpda.address}</exec.vmArgs>
                 <exec.args>${exec.vmArgs} -classpath %classpath ${exec.mainClass} ${exec.appArgs}</exec.args>
                 <exec.appArgs></exec.appArgs>
-                <exec.mainClass>com.github.coderodde.wikipedia.game.killer.fx.Main</exec.mainClass>
+                <exec.mainClass>com.github.coderodde.wikipedia.game.killer.fx.WikiGameKillerFX</exec.mainClass>
                 <exec.executable>java</exec.executable>
                 <jpda.listen>true</jpda.listen>
             </properties>
@@ -47,7 +47,7 @@
             <properties>
                 <exec.vmArgs>--module-path "C:\Users\PotilasKone\Documents\rd\sw\javafx-sdk-20.0.2\lib" --add-modules javafx.base,javafx.controls,javafx.fxml,javafx.graphics --add-exports javafx.graphics/com.sun.javafx.tk=ALL-UNNAMED</exec.vmArgs>
                 <exec.args>${exec.vmArgs} -classpath %classpath ${exec.mainClass} ${exec.appArgs}</exec.args>
-                <exec.mainClass>com.github.coderodde.wikipedia.game.killer.fx.Main</exec.mainClass>
+                <exec.mainClass>com.github.coderodde.wikipedia.game.killer.fx.WikiGameKillerFX</exec.mainClass>
                 <exec.executable>java</exec.executable>
                 <exec.appArgs></exec.appArgs>
             </properties>

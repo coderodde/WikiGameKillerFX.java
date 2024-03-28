@@ -15,6 +15,29 @@
     
     <build>
         <plugins>
+            
+            <plugin>
+                <groupId>org.openjfx</groupId>
+                <artifactId>javafx-maven-plugin</artifactId>
+                <version>0.0.8</version>
+                <executions>
+                    <execution>
+                        <!-- Default configuration for running -->
+                        <!-- Usage: mvn clean javafx:run -->
+                        <id>default-cli</id>
+                        <configuration>													
+                            <mainClass>com.github.coderodde.wikipedia.game.killer.fx.WikiGameKillerFX</mainClass>
+                            <launcher>app</launcher>
+                            <compress>2</compress>
+                            <jlinkZipName>WikiGameKiller</jlinkZipName>
+                            <jlinkImageName>WikiGameKillerImage</jlinkImageName>
+                            <noManPages>true</noManPages>
+                            <noHeaderFiles>true</noHeaderFiles>						
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-javadoc-plugin</artifactId>
@@ -29,7 +52,7 @@
                 <configuration>
                     <archive>
                         <manifest>
-                            <mainClass>com.github.coderodde.wikipedia.game.killer.fx.Main</mainClass>
+                            <mainClass>com.github.coderodde.wikipedia.game.killer.fx.WikiGameKillerJava</mainClass>
                         </manifest>
                     </archive>
                     <descriptorRefs>
@@ -76,6 +99,12 @@
         <dependency>
             <groupId>org.openjfx</groupId>
             <artifactId>javafx-controls</artifactId>
+            <version>20</version>
+            <classifier>win</classifier>
+        </dependency>
+        <dependency>
+            <groupId>org.openjfx</groupId>
+            <artifactId>javafx-graphics</artifactId>
             <version>20</version>
             <classifier>win</classifier>
         </dependency>
