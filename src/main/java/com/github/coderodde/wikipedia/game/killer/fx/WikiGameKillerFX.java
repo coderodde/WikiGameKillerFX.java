@@ -8,6 +8,9 @@ import com.github.coderodde.graph.pathfinding.delayed.impl.ThreadPoolBidirection
 import com.github.coderodde.wikipedia.graph.expansion.BackwardWikipediaGraphNodeExpander;
 import com.github.coderodde.wikipedia.graph.expansion.ForwardWikipediaGraphNodeExpander;
 import java.awt.Desktop;
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -54,11 +57,33 @@ import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.scene.text.Text;
+import javafx.stage.FileChooser;
+import javafx.stage.FileChooser.ExtensionFilter;
 import javafx.stage.Stage;
 import javafx.stage.WindowEvent;
 
 public final class WikiGameKillerFX extends Application {
 
+    /**
+     * Specifies the HTML file format.
+     */
+    private static final String HTML_TEMPLATE = 
+            """
+            <!DOCTYPE html>
+            <html>
+                <head>
+                    <title>WikiGameKillerFX.java</title>
+                </head>
+                <body>
+                    <div>%s</div>
+                    <div>
+                        <h3>Shortest path:</h3>
+                        <table>
+            %s            </table>
+                    </div>
+                <body>
+            </html>
+            """;
     /**
      * The Wikipedia URL format.
      */
@@ -107,6 +132,7 @@ public final class WikiGameKillerFX extends Application {
     private final Button searchButton          = new Button("Search");
     private final Button haltButton            = new Button("Halt");
     private final Button defaultSettingsButton = new Button("Set defaults");
+    private final Button saveResultsButton     = new Button("Save");
     
     private final ProgressBar progressBar = new ProgressBar(100.0);
     
@@ -128,6 +154,10 @@ public final class WikiGameKillerFX extends Application {
                                 BorderStrokeStyle.SOLID, 
                                 CornerRadii.EMPTY, 
                                 BorderWidths.DEFAULT));
+    
+    private volatile List<String> resultUrls;
+    private volatile int duration;
+    private volatile int numberOfExpandedNodes;
      
     public static void main(String[] args) {
         launch(args);
@@ -278,6 +308,29 @@ public final class WikiGameKillerFX extends Application {
         
         defaultSettingsButton.setOnAction((ActionEvent t) -> {
             setDefaultSettings();
+        });
+        
+        saveResultsButton.setOnAction((t) -> {
+            final FileChooser fileChooser = new FileChooser();
+            fileChooser.setTitle("Choose an HTML file");
+            fileChooser.getExtensionFilters()
+                       .addAll(new ExtensionFilter("HTML files", "*.html"),
+                               new ExtensionFilter("HTML files", "*.htm"));
+            
+            final File file = fileChooser.showSaveDialog(resultsStage);
+            
+            
+            String.format(
+                    HTML_TEMPLATE,
+                    String.format(
+                            "Duration: %d milliseconds, expanded %d nodes.", 
+                            duration, 
+                            numberOfExpandedNodes),
+                    getPathTableHtml(resultUrls));
+        });
+        
+        saveResultsButton.setOnAction((ActionEvent t) -> {
+            
         });
         
         searchButton.setOnAction((ActionEvent actionEvent) -> {
@@ -495,6 +548,43 @@ public final class WikiGameKillerFX extends Application {
                 Integer.toString(
                         ThreadPoolBidirectionalBFSPathFinder
                                 .DEFAULT_SLAVE_THREAD_SLEEP_DURATION_MILLIS));
+    }
+    
+    /**
+     * Returns the HTML code for the link path table.
+     * 
+     * @param linkPathNodeList the list of link path nodes.
+     * 
+     * @return the HTML code for the link path table.
+     */
+    private static String getPathTableHtml(
+            final List<String> linkPathNodeList) {
+        
+        StringBuilder stringBuilder = new StringBuilder();
+        
+        int lineNumber = 1;
+        
+        for (final String url : linkPathNodeList) {
+            stringBuilder.append(toTableRowHtml(lineNumber++, url, stripHostFromURL(url)));
+        }
+        
+        return stringBuilder.toString();
+    }
+    
+    static String toTableRowHtml(final int lineNumber, 
+                                 final String url, 
+                                 final String title) {
+        return new StringBuilder().append("                ") // Align.
+                                  .append("<tr><td>")
+                                  .append(lineNumber)
+                                  .append(".</td><td><a href=\"")
+                                  .append(url)
+                                  .append("\">")
+                                  .append(url)
+                                  .append("</a></td><td>")
+                                  .append(title)
+                                  .append("</td></tr>\n")   
+                                  .toString();
     }
     
     private void setTextFieldWarning(final TextField textField) {
@@ -858,6 +948,11 @@ public final class WikiGameKillerFX extends Application {
                                final int numberOfExpandedNodes) {
         
         final List<String> urls = addHosts(titles, languageCode);
+        
+        this.resultUrls = urls;
+        this.duration = duration;
+        this.numberOfExpandedNodes = numberOfExpandedNodes;
+        
         final List<Hyperlink> hyperlinks = getHyperlinks(urls);
         final Text statisticsText = 
                 new Text(
@@ -909,6 +1004,51 @@ public final class WikiGameKillerFX extends Application {
             resultsStage.setTitle("Search results");
             resultsStage.show();
         });
+    }
+     
+    private static String getPathTableHtml(
+            final List<String> urlList) {
+        
+        StringBuilder stringBuilder = new StringBuilder();
+        
+        int lineNumber = 1;
+        
+        for (final String url : urlList) {
+            stringBuilder.append(lineNumber++)
+                         .append("<a href=\"")
+            stringBuilder.append(linkPathNode.toTableRowHtml(lineNumber++));
+        }
+        
+        return stringBuilder.toString();
+    }
+    
+    private void saveFile(final File file) {
+        if (file.exists()) {
+            if (!file.delete()) {
+                throw new RuntimeException(
+                        String.format(
+                                "Could not delete the file \"%s\".", 
+                                file.getName()));
+            }
+        }
+        
+        String html = String.format(
+                    HTML_TEMPLATE,
+                    String.format(
+                            "Duration: %d milliseconds, expanded %d nodes.", 
+                            duration,
+                            numberOfExpandedNodes),
+                    getPathTableHtml(resultUrls));
+        
+        try (BufferedWriter bufferedWriter =
+                new BufferedWriter(new FileWriter(file))) {
+            
+            bufferedWriter.write(html);
+            bufferedWriter.close();
+        } catch (IOException ex) {
+            throw new RuntimeException(
+                    "Could not create a buffered writer.");
+        }
     }
     
     private static List<Hyperlink> getHyperlinks(final List<String> urls) {
