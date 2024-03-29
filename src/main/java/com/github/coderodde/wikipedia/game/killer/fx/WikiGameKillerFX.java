@@ -72,13 +72,32 @@ public final class WikiGameKillerFX extends Application {
             <html>
                 <head>
                     <title>WikiGameKillerFX.java</title>
+                    <style>
+                        body {
+                            font: normal 12pt Monospaced;
+                        }
+                    </style>
                 </head>
                 <body>
-                    <div>%s</div>
                     <div>
-                        <h3>Shortest path:</h3>
+                        <h3>Statistics</h3>
+                        %s
+                    </div>
+                    <div>
+                        <h3>Shortest path</h3>
                         <table>
             %s            </table>
+                    </div>
+                    <div>
+                        <h3>Search parameters:</h3>
+                        <table>
+                            <tr><td><b>Number of threads:     </b></td><td>%d</td><tr>
+                            <tr><td><b>Expansion duration:    </b></td><td>%d</td><tr>
+                            <tr><td><b>Wait timeout:          </b></td><td>%d</td><tr>
+                            <tr><td><b>Master trials:         </b></td><td>%d</td><tr>
+                            <tr><td><b>Master sleep duration: </b></td><td>%d</td><tr>
+                            <tr><td><b>Slave sleep duration:  </b></td><td>%d</td><tr>
+                        </table>
                     </div>
                 <body>
             </html>
@@ -135,7 +154,7 @@ public final class WikiGameKillerFX extends Application {
     
     private final ProgressBar progressBar = new ProgressBar(100.0);
     
-    private volatile AbstractDelayedGraphPathFinder<String> finder;
+    private volatile ThreadPoolBidirectionalBFSPathFinder<String> finder;
     
     private Stage resultsStage;
     private Stage primaryStage;
@@ -163,7 +182,7 @@ public final class WikiGameKillerFX extends Application {
     }
     
     @Override
-    public void start(Stage primaryStage) {
+    public void start(final Stage primaryStage) {
         this.primaryStage = primaryStage;
         
         primaryStage.setTitle(
@@ -278,6 +297,7 @@ public final class WikiGameKillerFX extends Application {
         
         searchButton.setDisable(true);
         haltButton.setDisable(true);
+        saveResultsButton.setDisable(true);
         
         statusBarHBox.setMaxHeight(30.0);
         
@@ -311,7 +331,20 @@ public final class WikiGameKillerFX extends Application {
         });
         
         saveResultsButton.setOnAction((t) -> {
+            if (resultUrls.isEmpty()) {
+                // Once here, there is no results to save. Alert and go back to GUI:
+                final Alert alert = 
+                        new Alert(
+                                AlertType.INFORMATION,
+                                "No results to save.",
+                                ButtonType.OK);
+
+                alert.showAndWait();
+                return;
+            }
+            
             final FileChooser fileChooser = new FileChooser();
+            
             fileChooser.setTitle("Choose an HTML file");
             fileChooser.getExtensionFilters()
                        .addAll(new ExtensionFilter("HTML files", "*.html"),
@@ -340,6 +373,7 @@ public final class WikiGameKillerFX extends Application {
             Platform.runLater(() -> {
                 searchButton.setDisable(true);
                 haltButton.setDisable(false);
+                saveResultsButton.setDisable(true);
             });
             
             final boolean ok = validateInputForm();
@@ -1028,6 +1062,8 @@ public final class WikiGameKillerFX extends Application {
             
             resultsStage.setTitle("Search results");
             resultsStage.show();
+            
+            saveResultsButton.setDisable(false);
         });
     }
      
@@ -1049,7 +1085,7 @@ public final class WikiGameKillerFX extends Application {
         for (final String url : urlList) {
             stringBuilder.append("                <tr><td>") // Add also indent.
                          .append(lineNumber++)
-                         .append(". </td><td><a href=\"")
+                         .append(".</td><td><a href=\"")
                          .append(url)
                          .append("\">")
                          .append(url)
@@ -1067,18 +1103,6 @@ public final class WikiGameKillerFX extends Application {
      * @param file the file object describing the target file to save to.
      */
     private void saveFile(final File file) {
-        if (resultUrls.isEmpty()) {
-            // Once here, there is no results to save. Alert and go back to GUI:
-            final Alert alert = 
-                    new Alert(
-                            AlertType.INFORMATION,
-                            "No results to save.",
-                            ButtonType.OK);
-            
-            alert.showAndWait();
-            return;
-        }
-        
         if (file.exists()) {
             // Need to delete first.
             if (!file.delete()) {
@@ -1097,7 +1121,13 @@ public final class WikiGameKillerFX extends Application {
                             "Duration: %d milliseconds, expanded %d nodes.", 
                             duration,
                             numberOfExpandedNodes),
-                    getPathTableHtml(resultUrls));
+                    getPathTableHtml(resultUrls),
+                    finder.getNumberOfThreads(),
+                    finder.getExpansionJoinDurationMillis(),
+                    finder.getLockWaitDurationMillis(),
+                    finder.getMasterThreadTrials(),
+                    finder.getMasterThreadSleepDurationMillis(),
+                    finder.getSlaveThreadSleepDurationMillis());
         
         // Attempt to save:
         try (BufferedWriter bufferedWriter =
