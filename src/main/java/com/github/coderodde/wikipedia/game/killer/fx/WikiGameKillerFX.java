@@ -20,8 +20,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.ExecutionException;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import java.util.regex.Pattern;
 import javafx.application.Application;
 import static javafx.application.Application.launch;
@@ -38,6 +36,7 @@ import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.control.Alert;
+import javafx.scene.control.Alert.AlertType;
 import javafx.scene.control.Button;
 import javafx.scene.control.ButtonType;
 import javafx.scene.control.Hyperlink;
@@ -155,7 +154,7 @@ public final class WikiGameKillerFX extends Application {
                                 CornerRadii.EMPTY, 
                                 BorderWidths.DEFAULT));
     
-    private volatile List<String> resultUrls;
+    private volatile List<String> resultUrls = new ArrayList<>();
     private volatile int duration;
     private volatile int numberOfExpandedNodes;
      
@@ -304,6 +303,7 @@ public final class WikiGameKillerFX extends Application {
         
         buttonsRowBox.getChildren().addAll(searchButton,
                                            defaultSettingsButton,
+                                           saveResultsButton,
                                            haltButton);
         
         defaultSettingsButton.setOnAction((ActionEvent t) -> {
@@ -319,18 +319,21 @@ public final class WikiGameKillerFX extends Application {
             
             final File file = fileChooser.showSaveDialog(resultsStage);
             
+            if (file == null) {
+                return;
+            }
             
-            String.format(
-                    HTML_TEMPLATE,
-                    String.format(
-                            "Duration: %d milliseconds, expanded %d nodes.", 
-                            duration, 
-                            numberOfExpandedNodes),
-                    getPathTableHtml(resultUrls));
-        });
-        
-        saveResultsButton.setOnAction((ActionEvent t) -> {
-            
+            try {
+                saveFile(file);
+            } catch (final RuntimeException ex) {
+                final Alert alert = 
+                        new Alert(
+                                AlertType.ERROR,
+                                ex.getMessage(),
+                                ButtonType.CLOSE);
+                
+                alert.showAndWait();
+            }
         });
         
         searchButton.setOnAction((ActionEvent actionEvent) -> {
@@ -339,7 +342,7 @@ public final class WikiGameKillerFX extends Application {
                 haltButton.setDisable(false);
             });
             
-            final boolean ok = reportInputStatus();
+            final boolean ok = validateInputForm();
             
             if (ok) {
                 final String sourceUrl = sourceTextField.getText();
@@ -393,14 +396,15 @@ public final class WikiGameKillerFX extends Application {
                                 (int) searchTask.finder.getDuration(),
                                 searchTask.finder
                                         .getNumberOfExpandedNodes());
+                    } catch (final InterruptedException | ExecutionException ex) {
+                        final Alert alert =
+                                new Alert(
+                                        AlertType.ERROR, 
+                                        String.format("Search failed: %s", ex.getMessage()),
+                                        ButtonType.CLOSE);
                         
-                        
-                    } catch (final InterruptedException ex) {
-                        Logger.getLogger(WikiGameKillerFX.class.getName())
-                              .log(Level.SEVERE, null, ex);
-                    } catch (final ExecutionException ex) {
-                        Logger.getLogger(WikiGameKillerFX.class.getName())
-                              .log(Level.SEVERE, null, ex);
+                        alert.showAndWait();
+                        return;
                     }
                     
                     enableInputForm();
@@ -550,27 +554,6 @@ public final class WikiGameKillerFX extends Application {
                                 .DEFAULT_SLAVE_THREAD_SLEEP_DURATION_MILLIS));
     }
     
-    /**
-     * Returns the HTML code for the link path table.
-     * 
-     * @param linkPathNodeList the list of link path nodes.
-     * 
-     * @return the HTML code for the link path table.
-     */
-    private static String getPathTableHtml(
-            final List<String> linkPathNodeList) {
-        
-        StringBuilder stringBuilder = new StringBuilder();
-        
-        int lineNumber = 1;
-        
-        for (final String url : linkPathNodeList) {
-            stringBuilder.append(toTableRowHtml(lineNumber++, url, stripHostFromURL(url)));
-        }
-        
-        return stringBuilder.toString();
-    }
-    
     static String toTableRowHtml(final int lineNumber, 
                                  final String url, 
                                  final String title) {
@@ -672,7 +655,14 @@ public final class WikiGameKillerFX extends Application {
         throw new IllegalStateException("Should not get here.");
     }
     
-    private boolean reportInputStatus() {
+    /**
+     * Validates the input form. If there are at least one error in the input 
+     * form, returns {@code false}. Returns {@code true} if the input form is in
+     * order.
+     * 
+     * @return {@code true} only if the input form is correctly filled.
+     */
+    private boolean validateInputForm() {
         final TextField topmostWarningTextField = 
                 getTopmostEmptyTextField();
 
@@ -809,7 +799,7 @@ public final class WikiGameKillerFX extends Application {
                 final String newValue) {
             
             if (newValue.isEmpty()) {
-                reportInputStatus();
+                validateInputForm();
                 setTextFieldWarning(textField);
                 return;
             }
@@ -817,7 +807,7 @@ public final class WikiGameKillerFX extends Application {
             textField.setText(newValue);
             unsetTextFieldWarning(textField);
             
-            if (reportInputStatus()) {
+            if (validateInputForm()) {
                 statusBarLabel.setText("");
                 searchButton.setDisable(false);
             }
@@ -843,7 +833,7 @@ public final class WikiGameKillerFX extends Application {
                 textField.setText("");
                 trySetHint(textField);
                 setTextFieldWarning(textField);
-                reportInputStatus();
+                validateInputForm();
                 return;
             }
             
@@ -852,7 +842,7 @@ public final class WikiGameKillerFX extends Application {
                 textField.setText(newValue);
                 unsetTextFieldWarning(textField);
                 
-                if (reportInputStatus()) {
+                if (validateInputForm()) {
                     statusBarLabel.setText("");
                     searchButton.setDisable(false);
                 }
@@ -862,6 +852,12 @@ public final class WikiGameKillerFX extends Application {
         }
     }
     
+    /**
+     * Checks that the source article URL conforms to a Wikipedia URL regular 
+     * language.
+     * 
+     * @param sourceUrl the source article URL.
+     */
     private static void checkSourceUrl(final String sourceUrl) {
         if (!WIKIPEDIA_URL_FORMAT_PATTERN.matcher(sourceUrl).find()) {
             throw new IllegalArgumentException(
@@ -871,6 +867,12 @@ public final class WikiGameKillerFX extends Application {
         }
     }
     
+    /**
+     * Checks that the target article URL conforms to a Wikipedia URL regular 
+     * language.
+     * 
+     * @param sourceUrl the target article URL.
+     */
     private static void checkTargetUrl(final String targetUrl) {
         if (!WIKIPEDIA_URL_FORMAT_PATTERN.matcher(targetUrl).find()) {
             throw new IllegalArgumentException(
@@ -894,14 +896,18 @@ public final class WikiGameKillerFX extends Application {
         final String secureProtocol = "https://";
         final String insecureProtocol = "http://";
         
+        // Strip the possible protocol (https or http):
         if (url.startsWith(secureProtocol)) {
             url = url.substring(secureProtocol.length());
         } else if (url.startsWith(insecureProtocol)) {
             url = url.substring(insecureProtocol.length());
         }
         
+        // Get the language code. We don't (yet) support simple.wikipedia.org.
         final String languageCode = url.substring(0, 2);
         
+        // Check that the language code is in the list of all possible ISO 
+        // country codes:
         if (!Arrays.asList(Locale.getISOLanguages()).contains(languageCode)) {
             throw new IllegalArgumentException(
                     String.format(
@@ -918,13 +924,13 @@ public final class WikiGameKillerFX extends Application {
      * {@code https://en.wikipedia.org/en/Hiisi} becomes simply {@code Hiisi}.
      * 
      * @param urlList the list of URLs.
-     * @return the list of stripped URLs.
+     * @return the list of article titles.
      */
     private static List<String> stripHostAddress(final List<String> urlList) {
         List<String> result = new ArrayList<>(urlList.size());
         
         for (final String url : urlList) {
-            result.add(url.substring(url.lastIndexOf("/") + 1));
+            result.add(stripHostFromURL(url));
         }
         
         return result;
@@ -942,18 +948,32 @@ public final class WikiGameKillerFX extends Application {
         return url.substring(url.lastIndexOf("/") + 1);
     }
     
+    /**
+     * Reports the search results.
+     * 
+     * @param titles                the list of titles in the article path.
+     * @param languageCode          the language code of the search process.
+     * @param duration              the duration of search in milliseconds.
+     * @param numberOfExpandedNodes the number of expanded nodes during search.
+     */
     private void reportResults(final List<String> titles,
                                final String languageCode,
                                final int duration,
                                final int numberOfExpandedNodes) {
         
+        // Get the path of full URLs:
         final List<String> urls = addHosts(titles, languageCode);
         
-        this.resultUrls = urls;
+        // Update the most recent search result:
+        this.resultUrls.clear();
+        this.resultUrls.addAll(urls);
         this.duration = duration;
         this.numberOfExpandedNodes = numberOfExpandedNodes;
         
+        // Convert the URLs to the instances of Hyperlink class:
         final List<Hyperlink> hyperlinks = getHyperlinks(urls);
+        
+        // Get the statistics message text:
         final Text statisticsText = 
                 new Text(
                         String.format(
@@ -971,6 +991,8 @@ public final class WikiGameKillerFX extends Application {
         int index = 1;
         
         for (int i = 0; i < hyperlinks.size(); i++) {
+            // We cannot reuse the same Separator. Need to make different 
+            // instances:
             final Separator separator = new Separator(Orientation.VERTICAL);
             separator.setPadding(new Insets(-5, 0, -5, 0));
             nodes[index] = separator;
@@ -982,6 +1004,7 @@ public final class WikiGameKillerFX extends Application {
         Platform.runLater(() -> {
             
             if (resultsStage != null) {
+                // Close the previous result window:
                 resultsStage.close();
             }
             
@@ -991,7 +1014,9 @@ public final class WikiGameKillerFX extends Application {
             vbox.getChildren().addAll(nodes);
             
             final StackPane resultsRoot = new StackPane(vbox);
-            final Scene resultsScene = new Scene(resultsRoot, 400, primaryScene.getHeight());
+            final Scene resultsScene = new Scene(resultsRoot, 
+                                                 400, 
+                                                 primaryScene.getHeight());
             resultsScene.getStylesheets()
                         .add(SEPARATOR_CSS);
             
@@ -1006,6 +1031,14 @@ public final class WikiGameKillerFX extends Application {
         });
     }
      
+    /**
+     * Returns a block of HTML code describing the actual contents of the result
+     * table.
+     * 
+     * @param urlList the list of URLs in the article path.
+     * 
+     * @return HTML code for the result &lt;table&gt;.
+     */
     private static String getPathTableHtml(
             final List<String> urlList) {
         
@@ -1014,17 +1047,42 @@ public final class WikiGameKillerFX extends Application {
         int lineNumber = 1;
         
         for (final String url : urlList) {
-            stringBuilder.append(lineNumber++)
-                         .append("<a href=\"")
-            stringBuilder.append(linkPathNode.toTableRowHtml(lineNumber++));
+            stringBuilder.append("                <tr><td>") // Add also indent.
+                         .append(lineNumber++)
+                         .append(". </td><td><a href=\"")
+                         .append(url)
+                         .append("\">")
+                         .append(url)
+                         .append("</a></td><td>")
+                         .append(stripHostFromURL(url))
+                         .append("</td></tr>\n");
         }
         
         return stringBuilder.toString();
     }
     
+    /**
+     * Attempts to save the most recent results into the file {@code file}.
+     * 
+     * @param file the file object describing the target file to save to.
+     */
     private void saveFile(final File file) {
+        if (resultUrls.isEmpty()) {
+            // Once here, there is no results to save. Alert and go back to GUI:
+            final Alert alert = 
+                    new Alert(
+                            AlertType.INFORMATION,
+                            "No results to save.",
+                            ButtonType.OK);
+            
+            alert.showAndWait();
+            return;
+        }
+        
         if (file.exists()) {
+            // Need to delete first.
             if (!file.delete()) {
+                // Once here, could not delete.
                 throw new RuntimeException(
                         String.format(
                                 "Could not delete the file \"%s\".", 
@@ -1032,7 +1090,8 @@ public final class WikiGameKillerFX extends Application {
             }
         }
         
-        String html = String.format(
+        // Get the HTML code for the result file:
+        final String html = String.format(
                     HTML_TEMPLATE,
                     String.format(
                             "Duration: %d milliseconds, expanded %d nodes.", 
@@ -1040,6 +1099,7 @@ public final class WikiGameKillerFX extends Application {
                             numberOfExpandedNodes),
                     getPathTableHtml(resultUrls));
         
+        // Attempt to save:
         try (BufferedWriter bufferedWriter =
                 new BufferedWriter(new FileWriter(file))) {
             
