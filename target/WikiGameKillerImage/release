@@ -1,0 +1,2 @@
+JAVA_VERSION="20.0.2"
+MODULES="java.base java.logging coderodde.ThreadPoolBidirectionalBFSPathFinder jdk.unsupported com.google.gson org.apache.commons.io coderodde.WikipediaGraphNodeExpanders java.datatransfer java.xml java.prefs java.desktop javafx.base javafx.graphics javafx.controls coderodde.WikiGameKillerFXJava"

@@ -320,6 +320,8 @@ public final class WikiGameKillerFX extends Application {
                         new BackwardLinkExpander(targetLanguageCode);
                 
                 haltButton.setDisable(false);
+                searchButton.setDisable(true);
+                defaultSettingsButton.setDisable(true);
                 
                 final SearchTask searchTask = new SearchTask();
 
@@ -329,28 +331,37 @@ public final class WikiGameKillerFX extends Application {
                 searchTask.forwardExpander = forwardNodeExpander;
                 searchTask.backwardExpander = backwardNodeExpander;
                 
-                searchTask.setOnSucceeded(new EventHandler<WorkerStateEvent>() {
-                    @Override
-                    public void handle(
-                            final WorkerStateEvent workerStateEvent) {
-                        try {
-                            reportResults(
-                                    searchTask.get(),
-                                    sourceLanguageCode, 
-                                    (int) searchTask.finder.getDuration(),
-                                    searchTask.finder
-                                              .getNumberOfExpandedNodes());
-                            
-                        } catch (InterruptedException ex) {
-                            Logger.getLogger(WikiGameKillerFX.class.getName()).log(Level.SEVERE, null, ex);
-                        } catch (ExecutionException ex) {
-                            Logger.getLogger(WikiGameKillerFX.class.getName()).log(Level.SEVERE, null, ex);
-                        }
+                searchTask.setOnSucceeded(
+                        (final WorkerStateEvent workerStateEvent) -> {
+                    try {
+                        reportResults(
+                                searchTask.get(),
+                                sourceLanguageCode,
+                                (int) searchTask.finder.getDuration(),
+                                searchTask.finder
+                                        .getNumberOfExpandedNodes());
+                        
+                        
+                    } catch (final InterruptedException ex) {
+                        Logger.getLogger(WikiGameKillerFX.class.getName())
+                              .log(Level.SEVERE, null, ex);
+                    } catch (final ExecutionException ex) {
+                        Logger.getLogger(WikiGameKillerFX.class.getName())
+                              .log(Level.SEVERE, null, ex);
                     }
+                    
+                    enableInputForm();
+                    haltButton.setDisable(true);
+                    searchButton.setDisable(false);
+                    defaultSettingsButton.setDisable(false);
                 });
 
                 final Thread searchThread = new Thread(searchTask);
                 searchThread.start();
+                
+                searchButton.setDisable(true);
+                defaultSettingsButton.setDisable(true);
+                disableInputForm();
             }
         });
         
@@ -369,6 +380,9 @@ public final class WikiGameKillerFX extends Application {
                         finder.getNumberOfExpandedNodes());
                 
                 finder = null;
+                
+                enableInputForm();
+                defaultSettingsButton.setDefaultButton(false);
             }
         });
         
@@ -413,7 +427,7 @@ public final class WikiGameKillerFX extends Application {
            
         final Text haltText = new Text("Search halted.");
         haltText.setFont(FONT);
-        haltText.setStyle("-fx-text-fill: #f44;");
+        haltText.setStyle("-fx-text-fill: #ff4444;");
         
         final VBox box = new VBox();
         box.getChildren().addAll(statisticsText, haltText);
@@ -442,6 +456,18 @@ public final class WikiGameKillerFX extends Application {
             resultsStage.setTitle("Search results");
             resultsStage.show();
         });
+    }
+    
+    private void disableInputForm() {
+        for (final TextField textField : textFieldList) {
+            textField.setDisable(true);
+        }
+    }
+    
+    private void enableInputForm() {
+        for (final TextField textField : textFieldList) {
+            textField.setDisable(false);
+        }
     }
     
     private void setDefaultSettings() {
@@ -660,6 +686,23 @@ public final class WikiGameKillerFX extends Application {
         return false;
     }
     
+    private void trySetHint(final TextField textField) {
+        if (textField == expansionoDurationTextField ||
+            textField == waitTimeoutTextField ||
+            textField == masterSleepTextField ||
+            textField == slaveSleepTextField) {
+            
+            textField.setPromptText("Milliseconds");
+            textField.getParent().requestFocus();
+        } else if (textField == threadsTextField) {
+            textField.setPromptText("Number of threads");
+            textField.getParent().requestFocus();
+        } else if (textField == masterTrialsTextField) {
+            textField.setPromptText("Master trials");
+            textField.getParent().requestFocus();
+        }
+    }
+    
     private final class StringTextFieldChangeListener 
             implements ChangeListener<String> {
 
@@ -708,6 +751,7 @@ public final class WikiGameKillerFX extends Application {
             
             if (newValue.trim().equals("")) {   
                 textField.setText("");
+                trySetHint(textField);
                 setTextFieldWarning(textField);
                 reportInputStatus();
                 return;
