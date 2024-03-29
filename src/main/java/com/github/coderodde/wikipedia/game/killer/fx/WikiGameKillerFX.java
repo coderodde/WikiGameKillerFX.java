@@ -8,6 +8,9 @@ import com.github.coderodde.graph.pathfinding.delayed.impl.ThreadPoolBidirection
 import com.github.coderodde.wikipedia.graph.expansion.BackwardWikipediaGraphNodeExpander;
 import com.github.coderodde.wikipedia.graph.expansion.ForwardWikipediaGraphNodeExpander;
 import java.awt.Desktop;
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -54,6 +57,8 @@ import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.scene.text.Text;
+import javafx.stage.FileChooser;
+import javafx.stage.FileChooser.ExtensionFilter;
 import javafx.stage.Stage;
 import javafx.stage.WindowEvent;
 
@@ -306,6 +311,15 @@ public final class WikiGameKillerFX extends Application {
         });
         
         saveResultsButton.setOnAction((t) -> {
+            final FileChooser fileChooser = new FileChooser();
+            fileChooser.setTitle("Choose an HTML file");
+            fileChooser.getExtensionFilters()
+                       .addAll(new ExtensionFilter("HTML files", "*.html"),
+                               new ExtensionFilter("HTML files", "*.htm"));
+            
+            final File file = fileChooser.showSaveDialog(resultsStage);
+            
+            
             String.format(
                     HTML_TEMPLATE,
                     String.format(
@@ -990,6 +1004,51 @@ public final class WikiGameKillerFX extends Application {
             resultsStage.setTitle("Search results");
             resultsStage.show();
         });
+    }
+     
+    private static String getPathTableHtml(
+            final List<String> urlList) {
+        
+        StringBuilder stringBuilder = new StringBuilder();
+        
+        int lineNumber = 1;
+        
+        for (final String url : urlList) {
+            stringBuilder.append(lineNumber++)
+                         .append("<a href=\"")
+            stringBuilder.append(linkPathNode.toTableRowHtml(lineNumber++));
+        }
+        
+        return stringBuilder.toString();
+    }
+    
+    private void saveFile(final File file) {
+        if (file.exists()) {
+            if (!file.delete()) {
+                throw new RuntimeException(
+                        String.format(
+                                "Could not delete the file \"%s\".", 
+                                file.getName()));
+            }
+        }
+        
+        String html = String.format(
+                    HTML_TEMPLATE,
+                    String.format(
+                            "Duration: %d milliseconds, expanded %d nodes.", 
+                            duration,
+                            numberOfExpandedNodes),
+                    getPathTableHtml(resultUrls));
+        
+        try (BufferedWriter bufferedWriter =
+                new BufferedWriter(new FileWriter(file))) {
+            
+            bufferedWriter.write(html);
+            bufferedWriter.close();
+        } catch (IOException ex) {
+            throw new RuntimeException(
+                    "Could not create a buffered writer.");
+        }
     }
     
     private static List<Hyperlink> getHyperlinks(final List<String> urls) {
