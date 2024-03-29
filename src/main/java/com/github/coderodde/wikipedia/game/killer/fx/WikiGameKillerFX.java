@@ -14,6 +14,8 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.net.URLDecoder;
+import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -76,6 +78,13 @@ public final class WikiGameKillerFX extends Application {
                         body {
                             font: normal 12pt Monospaced;
                         }
+            
+                        td {
+                            padding-top: 0px;
+                            padding-bottom: 0px;
+                            padding-left: 0px;
+                            padding-right: 10px;
+                        }
                     </style>
                 </head>
                 <body>
@@ -92,11 +101,11 @@ public final class WikiGameKillerFX extends Application {
                         <h3>Search parameters:</h3>
                         <table>
                             <tr><td><b>Number of threads:     </b></td><td>%d</td><tr>
-                            <tr><td><b>Expansion duration:    </b></td><td>%d</td><tr>
-                            <tr><td><b>Wait timeout:          </b></td><td>%d</td><tr>
+                            <tr><td><b>Expansion duration:    </b></td><td>%d milliseconds.</td><tr>
+                            <tr><td><b>Wait timeout:          </b></td><td>%d milliseconds.</td><tr>
                             <tr><td><b>Master trials:         </b></td><td>%d</td><tr>
-                            <tr><td><b>Master sleep duration: </b></td><td>%d</td><tr>
-                            <tr><td><b>Slave sleep duration:  </b></td><td>%d</td><tr>
+                            <tr><td><b>Master sleep duration: </b></td><td>%d milliseconds.</td><tr>
+                            <tr><td><b>Slave sleep duration:  </b></td><td>%d milliseconds.</td><tr>
                         </table>
                     </div>
                 <body>
@@ -1083,6 +1092,11 @@ public final class WikiGameKillerFX extends Application {
         int lineNumber = 1;
         
         for (final String url : urlList) {
+            String title = stripHostFromURL(url);
+            
+            title = URLDecoder.decode(title, Charset.forName("UTF-8"));
+            title = title.replace("_", " ");
+            
             stringBuilder.append("                <tr><td>") // Add also indent.
                          .append(lineNumber++)
                          .append(".</td><td><a href=\"")
@@ -1090,7 +1104,7 @@ public final class WikiGameKillerFX extends Application {
                          .append("\">")
                          .append(url)
                          .append("</a></td><td>")
-                         .append(stripHostFromURL(url))
+                         .append(title)
                          .append("</td></tr>\n");
         }
         
