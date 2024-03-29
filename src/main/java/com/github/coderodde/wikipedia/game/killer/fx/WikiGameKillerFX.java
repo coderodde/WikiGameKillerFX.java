@@ -60,6 +60,26 @@ import javafx.stage.WindowEvent;
 public final class WikiGameKillerFX extends Application {
 
     /**
+     * Specifies the HTML file format.
+     */
+    private static final String HTML_TEMPLATE = 
+            """
+            <!DOCTYPE html>
+            <html>
+                <head>
+                    <title>WikiGameKillerFX.java</title>
+                </head>
+                <body>
+                    <div>%s</div>
+                    <div>
+                        <h3>Shortest path:</h3>
+                        <table>
+            %s            </table>
+                    </div>
+                <body>
+            </html>
+            """;
+    /**
      * The Wikipedia URL format.
      */
     private static final String WIKIPEDIA_URL_FORMAT =
@@ -107,6 +127,7 @@ public final class WikiGameKillerFX extends Application {
     private final Button searchButton          = new Button("Search");
     private final Button haltButton            = new Button("Halt");
     private final Button defaultSettingsButton = new Button("Set defaults");
+    private final Button saveResultsButton     = new Button("Save");
     
     private final ProgressBar progressBar = new ProgressBar(100.0);
     
@@ -128,6 +149,10 @@ public final class WikiGameKillerFX extends Application {
                                 BorderStrokeStyle.SOLID, 
                                 CornerRadii.EMPTY, 
                                 BorderWidths.DEFAULT));
+    
+    private volatile List<String> resultUrls;
+    private volatile int duration;
+    private volatile int numberOfExpandedNodes;
      
     public static void main(String[] args) {
         launch(args);
@@ -278,6 +303,20 @@ public final class WikiGameKillerFX extends Application {
         
         defaultSettingsButton.setOnAction((ActionEvent t) -> {
             setDefaultSettings();
+        });
+        
+        saveResultsButton.setOnAction((t) -> {
+            String.format(
+                    HTML_TEMPLATE,
+                    String.format(
+                            "Duration: %d milliseconds, expanded %d nodes.", 
+                            duration, 
+                            numberOfExpandedNodes),
+                    getPathTableHtml(resultUrls));
+        });
+        
+        saveResultsButton.setOnAction((ActionEvent t) -> {
+            
         });
         
         searchButton.setOnAction((ActionEvent actionEvent) -> {
@@ -495,6 +534,43 @@ public final class WikiGameKillerFX extends Application {
                 Integer.toString(
                         ThreadPoolBidirectionalBFSPathFinder
                                 .DEFAULT_SLAVE_THREAD_SLEEP_DURATION_MILLIS));
+    }
+    
+    /**
+     * Returns the HTML code for the link path table.
+     * 
+     * @param linkPathNodeList the list of link path nodes.
+     * 
+     * @return the HTML code for the link path table.
+     */
+    private static String getPathTableHtml(
+            final List<String> linkPathNodeList) {
+        
+        StringBuilder stringBuilder = new StringBuilder();
+        
+        int lineNumber = 1;
+        
+        for (final String url : linkPathNodeList) {
+            stringBuilder.append(toTableRowHtml(lineNumber++, url, stripHostFromURL(url)));
+        }
+        
+        return stringBuilder.toString();
+    }
+    
+    static String toTableRowHtml(final int lineNumber, 
+                                 final String url, 
+                                 final String title) {
+        return new StringBuilder().append("                ") // Align.
+                                  .append("<tr><td>")
+                                  .append(lineNumber)
+                                  .append(".</td><td><a href=\"")
+                                  .append(url)
+                                  .append("\">")
+                                  .append(url)
+                                  .append("</a></td><td>")
+                                  .append(title)
+                                  .append("</td></tr>\n")   
+                                  .toString();
     }
     
     private void setTextFieldWarning(final TextField textField) {
@@ -858,6 +934,11 @@ public final class WikiGameKillerFX extends Application {
                                final int numberOfExpandedNodes) {
         
         final List<String> urls = addHosts(titles, languageCode);
+        
+        this.resultUrls = urls;
+        this.duration = duration;
+        this.numberOfExpandedNodes = numberOfExpandedNodes;
+        
         final List<Hyperlink> hyperlinks = getHyperlinks(urls);
         final Text statisticsText = 
                 new Text(
