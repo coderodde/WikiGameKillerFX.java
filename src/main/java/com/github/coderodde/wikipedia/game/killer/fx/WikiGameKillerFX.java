@@ -7,15 +7,24 @@ import com.github.coderodde.graph.pathfinding.delayed.impl.ThreadPoolBidirection
 import com.github.coderodde.graph.pathfinding.delayed.impl.ThreadPoolBidirectionalBFSPathFinderSearchBuilder;
 import com.github.coderodde.wikipedia.graph.expansion.BackwardWikipediaGraphNodeExpander;
 import com.github.coderodde.wikipedia.graph.expansion.ForwardWikipediaGraphNodeExpander;
+import com.google.gson.Gson;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
 import java.awt.Desktop;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
+import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.net.URL;
 import java.net.URLDecoder;
+import java.net.URLEncoder;
 import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -62,6 +71,7 @@ import javafx.stage.FileChooser;
 import javafx.stage.FileChooser.ExtensionFilter;
 import javafx.stage.Stage;
 import javafx.stage.WindowEvent;
+import org.apache.commons.io.IOUtils;
 
 public final class WikiGameKillerFX extends Application {
 
@@ -111,6 +121,14 @@ public final class WikiGameKillerFX extends Application {
                 <body>
             </html>
             """;
+    
+    /**
+     * The Wikipedia API call for generating two random pages.
+     */
+    private static final String RANDOM_PAGE_QUERY_URL = 
+            "https://en.wikipedia.org/w/api.php?" + 
+            "action=query&format=json&list=random&rnnamespace=0&rnlimit=2";
+    
     /**
      * The Wikipedia URL format.
      */
@@ -511,6 +529,8 @@ public final class WikiGameKillerFX extends Application {
         
         primaryStage.setScene(this.primaryScene = new Scene(root));
         primaryStage.show();
+        
+        setRandomArticles();
     }
     
     private void reportHalt(
@@ -1075,7 +1095,72 @@ public final class WikiGameKillerFX extends Application {
             saveResultsButton.setDisable(false);
         });
     }
+    
+    /**
+     * Downloads the JSON data with two random article titles.
+     * 
+     * @return the JSON data describing the two random articles.
+     * 
+     * @throws MalformedURLException if something fails.
+     * @throws IOException           if something fails.
+     */
+    private static String downloadPairOfRandomArticlesJson() 
+            throws MalformedURLException, IOException {
+        
+        return IOUtils.toString(new URL(RANDOM_PAGE_QUERY_URL),
+                                Charset.forName("UTF-8"));
+    }
      
+    private static String[] extractRandomUrls(final String json) throws UnsupportedEncodingException {
+        final String[] results = new String[2];
+        final Gson gson = new Gson();
+        final JsonObject root = gson.fromJson(json, JsonObject.class);
+        final JsonElement queryElement = root.get("query");
+        final JsonElement randomElement = queryElement.getAsJsonObject()
+                                                .get("random");
+        
+        final JsonArray articlesArray = randomElement.getAsJsonArray();
+        int index = 0;
+        
+        for (final JsonElement element : articlesArray) {
+            String title = element.getAsJsonObject()
+                                  .get("title")
+                                  .getAsString();
+            
+            title = "https://en.wikipedia.org/wiki/" +
+                    URLEncoder.encode(title, StandardCharsets.UTF_8.toString())
+                              .replace("+", "_");
+            
+            results[index++] = title;
+        }
+        
+        return results;
+    }
+    
+    private void setRandomArticles() {
+        final String json;
+        try {
+            json = downloadPairOfRandomArticlesJson();
+        } catch (IOException ex) {
+            final Alert alert = 
+                    new Alert(
+                            AlertType.WARNING,
+                            "Could not connect to Wikipedia server.",
+                            ButtonType.OK);
+            
+            alert.showAndWait();
+            return;
+        }
+        
+        try {
+            final String[] randomArticleUrls = extractRandomUrls(json);
+            sourceTextField.setText(randomArticleUrls[0]);
+            targetTextField.setText(randomArticleUrls[1]);
+        } catch (UnsupportedEncodingException ex) {
+        
+        }
+    }
+    
     /**
      * Returns a block of HTML code describing the actual contents of the result
      * table.
