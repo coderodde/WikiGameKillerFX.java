@@ -28,9 +28,7 @@
                         <configuration>													
                             <mainClass>com.github.coderodde.wikipedia.game.killer.fx.WikiGameKillerFX</mainClass>
                             <launcher>app</launcher>
-                            <compress>2</compress>
-                            <jlinkZipName>WikiGameKiller</jlinkZipName>
-                            <jlinkImageName>WikiGameKillerImage</jlinkImageName>
+                            <jlinkImageName>image</jlinkImageName>
                             <noManPages>true</noManPages>
                             <noHeaderFiles>true</noHeaderFiles>						
                         </configuration>
