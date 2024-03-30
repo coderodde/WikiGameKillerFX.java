@@ -178,6 +178,7 @@ public final class WikiGameKillerFX extends Application {
     private final Button haltButton            = new Button("Halt");
     private final Button defaultSettingsButton = new Button("Set defaults");
     private final Button saveResultsButton     = new Button("Save");
+    private final Button randomizeButton       = new Button("Randomize");
     
     private final ProgressBar progressBar = new ProgressBar(100.0);
     
@@ -351,6 +352,7 @@ public final class WikiGameKillerFX extends Application {
         buttonsRowBox.getChildren().addAll(searchButton,
                                            defaultSettingsButton,
                                            saveResultsButton,
+                                           randomizeButton,
                                            haltButton);
         
         defaultSettingsButton.setOnAction((ActionEvent t) -> {
@@ -481,6 +483,10 @@ public final class WikiGameKillerFX extends Application {
                 defaultSettingsButton.setDisable(true);
                 disableInputForm();
             }
+        });
+        
+        randomizeButton.setOnAction((t) -> {
+            setRandomArticles();
         });
         
         haltButton.setOnAction((ActionEvent actionEvent) -> {
